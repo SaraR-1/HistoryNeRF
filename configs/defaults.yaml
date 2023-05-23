@@ -1,0 +1,2 @@
+defaults:
+  - pose_config: colmap
