@@ -8,13 +8,13 @@ class PoseEstimator(ABC):
         config: PoseEstimationConfig
     ):
         self.config = config
-        self.initalize()
+        # self.initalize()
 
     def initalize(self):
-        self.output = Path(self.config["output_dir"])
+        self.output = Path(self.config.output_dir)
         self.output.mkdir(parents=True, exist_ok=True)
         (self.output / "mvs").mkdir(parents=True, exist_ok=True)
-        self.db_path = (self.output / self.config["database_path"])
+        self.db_path = (self.output / self.config.database_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
 

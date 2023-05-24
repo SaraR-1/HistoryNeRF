@@ -1,12 +1,13 @@
 from dataclasses import dataclass
+from typing import Type, Union
 from omegaconf import MISSING
 
 
 @dataclass
 class PoseEstimationConfig:
-    image_dir: str = MISSING
-    output_dir: str = MISSING
-    database_path: str = MISSING
+    image_dir: str = "/images"
+    output_dir: str = "/output"
+    database_path: str = "database.db"
 
 @dataclass
 class COLMAPConfig(PoseEstimationConfig):
@@ -15,6 +16,10 @@ class COLMAPConfig(PoseEstimationConfig):
     matching_method: str = "exhaustive"
 
 @dataclass
+class OpenMVGConfig(PoseEstimationConfig):
+    camera_model: str = "TEST"
+
+@dataclass
 class Config:
-    pose_estimation: PoseEstimationConfig = MISSING
+    pose_config: PoseEstimationConfig = MISSING
 

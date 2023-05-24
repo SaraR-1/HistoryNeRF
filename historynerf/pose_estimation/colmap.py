@@ -11,19 +11,19 @@ class COLMAPPoseEstimator(PoseEstimator):
 
     def _extract_features(self):
         pycolmap.extract_features(
-            self.config["database_path"], 
-            self.config["image_dir"], 
-            self.config["camera_model"],
+            database_path = self.config["database_path"], 
+            image_path = self.config["image_dir"], 
+            camera_model = self.config["camera_model"],
         )
     
     def _match_features(self):
         if self.config["matching_method"] == "exhaustive":
             pycolmap.match_exhaustive(
-                self.config["database_path"],
+                database_path = self.config["database_path"],
             )
         elif self.config["matching_method"] == "sequential":
             pycolmap.match_sequential(
-                self.config["database_path"],
+                database_path = self.config["database_path"],
             )
         else:
             raise ValueError(f"Matching method {self.config['matching_method']} not supported")
