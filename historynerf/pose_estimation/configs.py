@@ -5,8 +5,8 @@ from omegaconf import MISSING
 
 @dataclass
 class PoseEstimationConfig:
-    image_dir: str = "/images"
-    output_dir: str = "/output"
+    image_dir: str = "/Users/sr572/Documents/ScienceMuseum/Datasets/tory_trevi_fountain/images"
+    output_dir: str = "/Users/sr572/Documents/ScienceMuseum/Datasets/tory_trevi_fountain/output"
     database_path: str = "database.db"
 
 @dataclass
