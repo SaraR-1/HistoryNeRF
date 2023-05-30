@@ -1,19 +1,21 @@
 from dataclasses import dataclass
-from typing import Type, Union
+from typing import Optional
 from omegaconf import MISSING
 
 
 @dataclass
 class PoseEstimationConfig:
-    image_dir: str = "/Users/sr572/Documents/ScienceMuseum/Datasets/tory_trevi_fountain/images"
-    output_dir: str = "/Users/sr572/Documents/ScienceMuseum/Datasets/tory_trevi_fountain/output"
+    image_dir: str = "/srv/galene0/sr572/palace_of_westminster/dense/images"
+    output_dir: str = "/srv/galene0/sr572/palace_of_westminster/dense/output"
     database_path: str = "database.db"
 
 @dataclass
 class COLMAPConfig(PoseEstimationConfig):
     camera_model: str = "SIMPLE_RADIAL"
-    use_gpu: float = 1
+    use_gpu: str = 7
     matching_method: str = "exhaustive"
+    seed: int = 0
+    sample_size: Optional[int] = None
 
 @dataclass
 class OpenMVGConfig(PoseEstimationConfig):

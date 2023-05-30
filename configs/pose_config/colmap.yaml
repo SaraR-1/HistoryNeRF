@@ -1,6 +1,8 @@
 defaults:
   - base_colmap
-camera_model: SIMPLE_RADIAL
+camera_model: PINHOLE # SIMPLE_RADIAL
 use_gpu: 1
 matching_method: exhaustive
+seed: 0
+sample_size: 
 # output_dir: "testdir" <- override parent class defaults

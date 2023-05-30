@@ -24,7 +24,8 @@ def main(cfg: Config) -> None:
     cfg_obj = OmegaConf.to_object(cfg)
     estimator: PoseEstimator = estimation_map[type(cfg_obj.pose_config)](cfg_obj.pose_config)
     print("Start COLMAP pose estimation")
-    estimator.estimate_poses()
+    output_dir = estimator.estimate_poses()
+
 
 if __name__ == "__main__":
     main()

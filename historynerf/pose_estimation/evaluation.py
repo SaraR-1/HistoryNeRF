@@ -1,6 +1,5 @@
 import numpy as np
 import pycolmap
-from pathlib import Path
 
 def compute_angular_error(rotation1, rotation2):
     '''
@@ -22,6 +21,27 @@ def compute_angular_error(rotation1, rotation2):
     # Convert the angle of rotation from radians to degrees
     return theta * 180 / np.pi 
 
+def report_angular_error(angular_error, max_distance=15):
+    '''
+    Report the percentage of images with angular error less than max_distance
+    Args:
+        angular_error: list of angular errors
+        max_distance: max distance to consider an image as correctly estimated
+    Returns:
+        percentage: percentage of images with angular error less than max_distance
+    '''
+    return sum([1 for i in angular_error if i < max_distance]) / len(angular_error)
+
+def report_l2_translation(l2_translation, max_distance=0.2):
+    '''
+    Report the percentage of images with L2 norm of the translation vector less than max_distance
+    Args:
+        l2_translation: list of L2 norm of the translation vectors
+        max_distance: max distance to consider an image as correctly estimated
+    Returns:
+        percentage: percentage of images with L2 norm of the translation vector less than max_distance
+    '''
+    return sum([1 for i in l2_translation if i < max_distance]) / len(l2_translation)
 
 def compute_l2_translation(translation1, translation2):
     '''
@@ -32,25 +52,6 @@ def compute_l2_translation(translation1, translation2):
     Returns:
         l2_norm: L2 norm between the two translation vectors'''
     return np.linalg.norm(translation1 - translation2)
-
-def read_colmap_poses(path):
-    '''
-    Read COLMAP poses
-    Args:
-        path: path to the directory containing the cameras, images and points3D bin files
-    Returns:
-        images: pycolmap.Image object
-    '''
-    reconstruction = pycolmap.Reconstruction(path)
-    return reconstruction.images
-
-def match_colmap_poses(poses1, poses2):
-    '''
-    Match poses from two different reconstructions
-    Args:
-    Returns:
-    '''
-    pass
 
 def image_name_asid(images):
     '''
@@ -63,12 +64,11 @@ def compare_poses(path1, path2):
     Compare poses from two different reconstructions using the angular error and the L2 norm of the translation vector
     '''
     # Read COLMAP poses
-    #images1 = read_colmap_poses(path1)
-    images2 = read_colmap_poses(path2)   
-    breakpoint() 
-    # prova = pycolmap.Reconstruction(path2).images
-    # rec = pycolmap.Reconstruction(path2)
-    # pr = rec.images
+    rec1 = pycolmap.Reconstruction(path1)
+    images1 = rec1.images
+
+    rec2 = pycolmap.Reconstruction(path2)
+    images2 = rec2.images
 
     images1_byname = image_name_asid(images1)
     images2_byname = image_name_asid(images2)
@@ -81,7 +81,9 @@ def compare_poses(path1, path2):
         angular_errors.append(compute_angular_error(images1_byname[i].rotmat(), images2_byname[i].rotmat()))
         l2_translations.append(compute_l2_translation(images1_byname[i].tvec, images2_byname[i].tvec))
 
+    print(report_angular_error(angular_errors, max_distance=15))
+    print(report_l2_translation(l2_translations, max_distance=0.2)) 
 
 if __name__ == "__main__":
-    compare_poses(path1="/Users/sr572/Documents/ScienceMuseum/Datasets/trevi_fountain/dense/sparse", 
-                  path2="/Users/sr572/Documents/ScienceMuseum/Datasets/toy_trevi_fountain/output")
+    compare_poses(path1="/srv/galene0/sr572/palace_of_westminster/dense/sparse", 
+                  path2="/srv/galene0/sr572/palace_of_westminster/dense/output/seed0_nsamples50/")
