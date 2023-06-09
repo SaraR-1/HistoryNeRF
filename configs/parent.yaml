@@ -2,3 +2,6 @@ defaults:
   - base_parent
   - pose_config: colmap
   - _self_
+
+wandb_project: "colmap"
+wandb_log: True

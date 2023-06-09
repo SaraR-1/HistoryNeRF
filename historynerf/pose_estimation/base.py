@@ -22,6 +22,10 @@ class PoseEstimator(ABC):
     @abstractmethod
     def estimate_poses(self):
         pass
+
+    @abstractmethod
+    def evaluate_poses(self):
+        pass
     
 
 

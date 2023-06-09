@@ -1,5 +1,6 @@
 from historynerf.pose_estimation.base import PoseEstimator
 from historynerf.pose_estimation.configs import COLMAPConfig
+from historynerf.pose_estimation.evaluation import compare_poses
 from pathlib import Path
 import pycolmap
 import random
@@ -40,6 +41,7 @@ class COLMAPPoseEstimator(PoseEstimator):
             camera_model = self.config.camera_model,
             image_list = image_list,
             sift_options = {"gpu_index": self.config.use_gpu},
+            verbose = False,
         )
     
     def _match_features(self):
@@ -47,18 +49,24 @@ class COLMAPPoseEstimator(PoseEstimator):
         if self.config.matching_method == "exhaustive":
             pycolmap.match_exhaustive(
                 database_path = self.config.database_path,
+                verbose = False,
+                # default values {"max_ratio": 0.8, "max_distance": 0.7, "min_num_inliers": 15}
+                # sift_options = {"max_ratio": 0.8, "max_distance": 0.7, "min_num_inliers": 5},
             )
         elif self.config.matching_method == "sequential":
             pycolmap.match_sequential(
                 database_path = self.config.database_path,
+                verbose = False,
             )
         elif self.config.matching_method == "spatial":
             pycolmap.match_spatial(
                 database_path = self.config.database_path,
+                verbose = False,
             )
         elif self.config.matching_method == "vocabtree":
             pycolmap.match_vocabtree(
                 database_path = self.config.database_path,
+                verbose = False,
             )
         else:
             raise ValueError(f"Matching method {self.config.matching_method} not supported")
@@ -71,16 +79,39 @@ class COLMAPPoseEstimator(PoseEstimator):
             output_path = self.config.output_dir, )
 
     def estimate_poses(self):
-        undersample_image_list, output_dir = undersample_images(
-            image_path=self.config.image_dir,
-            output_dir=self.config.output_dir, 
-            rnd_seed=self.config.seed, 
-            sample_size=self.config.sample_size)
+        if self.config.image_list:
+            output_dir = Path(self.config.output_dir) / f"chosen_nsamples{len(self.config.image_list)}"
+            if output_dir.exists():
+                output_dir = Path(self.config.output_dir) / f"chosen_nsamples{len(self.config.image_list)}_{self.config.seed}"
+            output_dir.mkdir()
+            with open(str(output_dir / f"undersample_list.txt"), "w") as f:
+                f.write("\n".join(self.config.image_list))
+            undersample_image_list = self.config.image_list
+        else:    
+            undersample_image_list, output_dir = undersample_images(
+                image_path=self.config.image_dir,
+                output_dir=self.config.output_dir, 
+                rnd_seed=self.config.seed, 
+                sample_size=self.config.sample_size)
+        self.config.output_dir = output_dir
+
         self._extract_features(image_list = undersample_image_list)
         self._match_features()
         maps = self._incremental_mapping()
-        shutil.rmtree((Path(self.config.output_dir) / "0"))
-        # Write the output to the output directory, i.e. cameras, images and points3D. The output directory is changed if undersampling is used. 
-        maps[0].write(output_dir)
-
-        return output_dir
+        # Remove the 0 folder, which is the initial reconstruction, if it exists
+        if (Path(self.config.output_dir) / "0").exists():
+            shutil.rmtree((Path(self.config.output_dir) / "0"))
+        
+        if bool(maps):
+            # Write the output to the output directory, i.e. cameras, images and points3D. The output directory is changed if undersampling is used. 
+            maps[0].write(self.config.output_dir)
+        else:
+            print("No reconstruction found")
+        
+    
+    def evaluate_poses(self):
+        return compare_poses(
+            path1=self.config.gt_poses_dir, 
+            path2=self.config.output_dir,
+            angular_error_max_dist=self.config.angular_error,
+            translation_error_max_dist=self.config.translation_error)

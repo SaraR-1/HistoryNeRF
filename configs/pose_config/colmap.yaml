@@ -5,4 +5,8 @@ use_gpu: 1
 matching_method: exhaustive
 seed: 0
 sample_size: 
+image_list:
+gt_poses_dir: /srv/galene0/sr572/palace_of_westminster/dense/sparse
+angular_error: 15
+translation_error: 0.25
 # output_dir: "testdir" <- override parent class defaults
