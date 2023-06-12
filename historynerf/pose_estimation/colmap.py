@@ -8,6 +8,7 @@ import shutil
 from historynerf.pose_estimation.utils.data_preprocessing import undersample_images, undersample_video_frames, undersample_fromlist
 
 
+
 class COLMAPPoseEstimator(PoseEstimator):
     def __init__(
         self, 
@@ -23,7 +24,7 @@ class COLMAPPoseEstimator(PoseEstimator):
             camera_model = self.config.camera_model,
             image_list = image_list,
             sift_options = {"gpu_index": self.config.use_gpu},
-            device="cuda",
+            device="cuda" if self.config.use_gpu else "cpu",
             verbose = True,
         )
     
@@ -34,7 +35,7 @@ class COLMAPPoseEstimator(PoseEstimator):
                 database_path = self.config.database_path,
                 verbose = True,
                 sift_options = {"gpu_index": self.config.use_gpu},
-                device="cuda",
+                device="cuda" if self.config.use_gpu else "cpu",
                 # default values {"max_ratio": 0.8, "max_distance": 0.7, "min_num_inliers": 15}
                 # sift_options = {"max_ratio": 0.8, "max_distance": 0.7, "min_num_inliers": 5},
             )
@@ -43,21 +44,21 @@ class COLMAPPoseEstimator(PoseEstimator):
                 database_path = self.config.database_path,
                 verbose = False,
                 sift_options = {"gpu_index": self.config.use_gpu},
-                device="cuda",
+                device="cuda" if self.config.use_gpu else "cpu",
             )
         elif self.config.matching_method == "spatial":
             pycolmap.match_spatial(
                 database_path = self.config.database_path,
                 verbose = False,
                 sift_options = {"gpu_index": self.config.use_gpu},
-                device="cuda",
+                device="cuda" if self.config.use_gpu else "cpu",
             )
         elif self.config.matching_method == "vocabtree":
             pycolmap.match_vocabtree(
                 database_path = self.config.database_path,
                 verbose = False,
                 sift_options = {"gpu_index": self.config.use_gpu},
-                device="cuda",
+                device="cuda" if self.config.use_gpu else "cpu",
             )
         else:
             raise ValueError(f"Matching method {self.config.matching_method} not supported")
@@ -89,7 +90,7 @@ class COLMAPPoseEstimator(PoseEstimator):
         
         elif self.config.video_sample_step:
             undersample_image_list, output_dir = undersample_video_frames(
-                video_path=self.config.video_path,
+                image_path=self.config.image_dir,
                 output_dir=self.config.output_dir,
                 step_size=self.config.video_sample_step,)
             

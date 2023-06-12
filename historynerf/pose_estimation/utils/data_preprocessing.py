@@ -44,7 +44,7 @@ def undersample_video_frames(
     '''
     Undersample the sequential frames of a video. Take a frame every step_size frames. For sanity check, it saves the new image list in a txt file.
     '''
-    image_list = [str(i.name) for i in Path(image_path).iterdir()]
+    image_list = sorted([str(i.name) for i in Path(image_path).iterdir()])
     undersample_list = image_list[::step_size]
 
     output_dir = Path(output_dir) / f"step_size{step_size}"

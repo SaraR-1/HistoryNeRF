@@ -12,7 +12,7 @@ class PoseEstimationConfig:
 @dataclass
 class COLMAPConfig(PoseEstimationConfig):
     camera_model: str = "SIMPLE_RADIAL"
-    use_gpu: str = 7
+    use_gpu: Optional[str] = None
     matching_method: str = "exhaustive"
     # For evaluation purposes, path to the ground truth poses
     gt_poses_dir: Optional[str] = None
