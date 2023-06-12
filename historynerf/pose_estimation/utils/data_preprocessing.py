@@ -2,6 +2,8 @@ from pathlib import Path
 import random
 from typing import Optional
 
+import cv2
+
 def undersample_fromlist(
         output_dir: Path, 
         image_list: list,
@@ -53,3 +55,31 @@ def undersample_video_frames(
     with open(str(output_dir / f"undersample_list.txt"), "w") as f:
         f.write("\n".join(undersample_list))
     return undersample_list, output_dir
+
+
+def video_to_frames(
+        video_path: Path, 
+        save_path: Path):
+    '''
+    Extract the frames from a video and save them in a folder.
+
+    Example:
+    dataset_path = Path("/bridge_of_sighs")
+    video_path = dataset_path / "bridge_of_sighs.mp4"
+    save_path = dataset_path / "frames"
+
+    video_to_frames(video_path, save_path)
+    '''
+    capture = cv2.VideoCapture(video_path)
+    frameNr = 0
+    
+    while (True):
+        success, frame = capture.read()
+        if success:
+            cv2.imwrite(save_path+f'{frameNr}.jpg', frame)
+        else:
+            break
+        frameNr += 1
+    
+    capture.release()
+    print(f"Number of frames found: {frameNr}")
