@@ -1,3 +1,14 @@
+## Run COLMAP
+Check hydra config:
+```
+python historynerf/pose_estimation/run.py -h
+```
+How to run COLMAP pose estimation:
+```
+python historynerf/pose_estimation/run.py wandb_project=colmap_realvideos wandb_log=True pose_config.use_gpu=5 pose_config.image_dir=/sheldonian/frames pose_config.output_dir=/sheldonian/output pose_config.matching_method=sequential pose_config.video_sample_step=5
+```
+**Practical info:** if the images are extracted from a video `sequential` matching should be used, `exhaustive` otherwise.
+
 ## COLMAP Create Screencast
 First, start the COLMAP GUI by executing:
 ```
