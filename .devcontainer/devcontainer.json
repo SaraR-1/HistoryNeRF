@@ -33,6 +33,6 @@
 		"--gpus", "all"
 	],
 	"workspaceFolder": "/workspace",
-	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/HistoryNeRF,type=bind,consistency=cached"
 
 }
