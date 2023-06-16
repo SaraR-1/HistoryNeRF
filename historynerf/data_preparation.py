@@ -4,16 +4,13 @@ import random
 import shutil
 from typing import Optional
 
-
-from historynerf.config import PreprocessingConfig
-
-
+from historynerf.config import DataPreparationConfig
 
 # Create a class for preprocessing the data
-class Preprocessing:
+class DataPreparation:
     def __init__(
             self,
-            config: PreprocessingConfig,
+            config: DataPreparationConfig,
 
     ):
         self.config = config
@@ -60,8 +57,7 @@ class Preprocessing:
         Unsersample the images in the image list. If rnd_seed=None, then the sampling is non-random but based on closeness - requires some gold standard data for camera poses
         '''
         if self.config.sampling.sample_size:
-            image_list = [str(i.name) for i in Path(self.config.input_dir).iterdir()]
-
+            image_list = sorted([str(i.name) for i in Path(self.config.input_dir).iterdir()])
             if self.config.sampling.rnd_seed:
                 random.Random(self.config.sampling.rnd_seed).shuffle(image_list)
             undersample_list = image_list[:self.config.sampling.sample_size]
@@ -69,15 +65,19 @@ class Preprocessing:
             return undersample_list
         return []
     
-    def undersample_sequential(self, 
+    def undersample_video(self, 
                                frames_folder=True):
         '''
         Undersample the sequential frames of a video. Take a frame every step_size frames. 
         '''
         if self.config.sampling.video_sample_step:
-            input_dir = Path(self.config.input_dir) / "frames" if frames_folder else Path(self.config.input_dir)
-            image_list = sorted([str(i.name) for i in Path(input_dir).iterdir()])
-            undersample_list = image_list[::self.config.sampling.video_sample_step]
+            frames_dir = Path(self.config.output_dir) / "frames" if frames_folder else Path(self.config.output_dir)
+            # Overwrite the input direction to be pointing to the frames rather then the video
+            self.config.input_dir = frames_dir    
+            # Sort filenames numerically
+            file_names = [Path(i.name) for i in Path(self.config.input_dir).iterdir()]
+            sorted_files = sorted(file_names, key=lambda x: int(x.stem))
+            undersample_list = sorted_files[::self.config.sampling.video_sample_step]
             return undersample_list
         return []
 
@@ -92,20 +92,27 @@ class Preprocessing:
     def noise(self):
         pass
 
-    def write_images(self):
+    def save_images(self):
         '''
         Copy the images in the undersample list to the output directory
         '''
-        # Check if the input directory is a folder of images or a video 
-        if self.config.input_dir.is_dir():
+        # Check if the input directory is a folder of images or a video
+        video_flag = False           
+        if Path(self.config.input_dir).is_dir():
             undersample_list = self.undersample()
         else:
+            frames_folder = True
+            video_flag = True  
             self.video_to_frames()
-            undersample_list = self.undersample_sequential(frames_folder=True)
-
+            undersample_list = self.undersample_video(frames_folder=frames_folder)
         self.write_undersample_list(undersample_list)
 
         for image in undersample_list:
             image_path = Path(self.config.input_dir) / image
-            # Copy the image to the output directory
+            # Copy the image to the output director
             shutil.copy(image_path, Path(self.config.output_dir) / image)
+    
+        # If input data is video, delete the temporary repository with all frames
+        if video_flag:
+            frames_dir = Path(self.config.output_dir) / "frames" if frames_folder else Path(self.config.output_dir)
+            shutil.rmtree(frames_dir)
