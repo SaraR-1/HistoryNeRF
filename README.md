@@ -1,27 +1,30 @@
-## Run COLMAP
-Check hydra config:
-```
-python historynerf/pose_estimation/run.py -h
-```
-How to run COLMAP pose estimation:
-```
-python historynerf/pose_estimation/run.py wandb_project=colmap_realvideos wandb_log=True pose_config.use_gpu=5 pose_config.image_dir=/sheldonian/frames pose_config.output_dir=/sheldonian/output pose_config.matching_method=sequential pose_config.video_sample_step=5
-```
-**Practical info:** if the images are extracted from a video `sequential` matching should be used, `exhaustive` otherwise.
+## NeRFStudio Preprocessing and Structure from motion
+Usage: `ns-process-data images` `--data PATH --output-dir PATH [--verbose | --no-verbose] [--camera-type {perspective,fisheye,equirectangular}]
+                              [--matching-method {exhaustive,sequential,vocab_tree}] [--sfm-tool {any,colmap,hloc}] [--refine-pixsfm | --no-refine-pixsfm]
+                              [--feature-type {any,sift,superpoint,superpoint_aachen,superpoint_max,superpoint_inloc,r2d2,d2net-ss,sosnet,disk}]
+                              [--matcher-type {any,NN,superglue,superglue-fast,NN-superpoint,NN-ratio,NN-mutual,adalam}] [--num-downscales INT]
+                              [--skip-colmap | --no-skip-colmap] [--skip-image-processing | --no-skip-image-processing] [--colmap-model-path PATH] [--colmap-cmd STR]
+                              [--images-per-equirect {8,14}] [--crop-factor FLOAT FLOAT FLOAT FLOAT] [--crop-bottom FLOAT] [--gpu | --no-gpu]
+                              [--use-sfm-depth | --no-use-sfm-depth] [--include-depth-debug | --no-include-depth-debug]`
 
-## COLMAP Create Screencast
-First, start the COLMAP GUI by executing:
-```
-colmap gui
-```
+Explaining `any` defaults, specifically how sfm replaces the default parameters `any` by usable value:
 
-Then, import the model using `File > Import Model`. The folder should contain 3 files: cameras.bin, images.bin and points3D.bin.
-To create a video screen capture of the reconstructed model, choose `Extras > Grab movie`. This dialog allows to set individual control viewpoints by choosing `Add`.
-Save the individual frames of the video capture selecting `Assemble movie`.
-
-The frames can then be assembled to a movie using FFMPEG with the following command:
 ```
-ffmpeg -i frame%06d.png -r 30 -vf scale=1680:1050 movie.mp4
-```
+if sfm_tool == "any":
+    if (feature_type in ("any", "sift")) and (matcher_type in ("any", "NN")):
+        sfm_tool = "colmap"
+    else:
+        sfm_tool = "hloc"
+if sfm_tool == "colmap":
+    if (feature_type not in ("any", "sift")) or (matcher_type not in ("any", "NN")):
+        return (None, None, None)
+    return ("colmap", "sift", "NN")
+if sfm_tool == "hloc":
+    if feature_type in ("any", "superpoint"):
+        feature_type = "superpoint_aachen"
 
-For additional information check the [COLMAP documentation](https://colmap.github.io/gui.html).
+    if matcher_type == "any":
+        matcher_type = "superglue"
+    elif matcher_type == "NN":
+        matcher_type = "NN-mutual"
+```
