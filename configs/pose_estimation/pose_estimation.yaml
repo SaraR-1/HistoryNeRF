@@ -1,4 +1,15 @@
 defaults:
    - base_pose_estimation
 
-method: "colmap"
+sfm_tool: "colmap" 
+camera_type: "perspective" 
+matching_method: "vocab_tree"
+feature_type: "sift"
+matcher_type: "NN"
+num_downscales: 3
+skip_colmap_flag: False
+skip_image_processing_flag: False
+colmap_model_path: 
+gpu_flag: True                                                                                
+use_sfm_depth_flag: False
+include_depth_debug_flag: False
