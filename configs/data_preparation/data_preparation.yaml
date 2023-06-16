@@ -1,0 +1,8 @@
+defaults:
+ - base_data
+ - sampling: base_sampling
+#  - noise: base_noise
+
+input_dir: "/workspace/data/palace_of_westminster/dense/images"
+output_dir: "/workspace/data/palace_of_westminster/dense/output_temp/random_undersampling"
+overwrite_output: False

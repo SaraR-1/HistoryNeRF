@@ -1,0 +1,10 @@
+defaults:
+  - base_parent
+  - data_preparation: data_preparation
+  - pose_estimation: pose_estimation
+  - nerf: nerf
+  # - evaluation:
+  - _self_
+
+wandb_project: "nerfstudio"
+wandb_log: True

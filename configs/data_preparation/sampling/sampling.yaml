@@ -1,0 +1,7 @@
+defaults:
+   - base_sampling
+
+rnd_seed: 
+sample_size:
+image_list: 
+video_sample_step: 
