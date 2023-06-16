@@ -32,7 +32,10 @@ class NSWrapper:
         2. Calculates the camera poses for each image using `COLMAP <https://colmap.github.io/>`_.
 
         Run example:
-        ns-process-data images --data ../data/bridge_of_sighs/output_temp/every5frames/ --output-dir ../data/bridge_of_sighs/output_temp/processed_data
+        ns-process-data images --data ../data/bridge_of_sighs/output_temp/every5frames/images --output-dir ../data/bridge_of_sighs/output_temp/every5frames/processed_data
+        
+        ns-train nerfacto --data ../data/bridge_of_sighs/output_temp/every5frames/processed_data --viewer.websocket-port 8501
+        
         '''
         # Parse all the arguments names, replace "_" with "-"
 
@@ -43,8 +46,14 @@ class NSWrapper:
         os.system(command)
 
     def train(self):
+        # Use --vis {wandb, tensorboard, viewer+wandb, viewer+tensorboard} to run with eval.
         command = f"ns-train nerfacto --data {PROCESSED_DATA_DIR}"
         os.system(command)
+
+
+    def render(self):
+        # For rendering the video, the camera path must first be created and extracted manually using viewer
+        pass
 
     def run(self):
         self._process_data()
