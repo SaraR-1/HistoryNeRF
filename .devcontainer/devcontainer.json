@@ -6,7 +6,8 @@
 		// Sets the run context to one level up instead of the .devcontainer folder.
 		"context": "..",
 		// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
-		"dockerfile": "../Dockerfile"
+		"dockerfile": "../Dockerfile",
+		"args": { "CUDA_ARCHITECTURES": "86" }
 	},
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
@@ -30,7 +31,7 @@
 
 	"runArgs": [
 		// Mount the Docker socket so we can access the host Docker daemon.
-		"--gpus", "all"
+		"--gpus", "all",
 	],
 	"workspaceFolder": "/workspace",
 	"workspaceMount": "source=${localWorkspaceFolder},target=/workspace/HistoryNeRF,type=bind,consistency=cached"
