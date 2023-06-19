@@ -1,3 +1,4 @@
+from coolname import generate_slug
 import hydra
 from hydra.core.config_store import ConfigStore
 from omegaconf import OmegaConf
@@ -6,6 +7,7 @@ import wandb
 
 from historynerf.config import Config, DataPreparationConfig, PoseEstimationConfig, NeRFConfig, EvaluationConfig, SamplingConfig
 from historynerf.data_preparation import DataPreparation
+from historynerf.nerfstudio_wrapper import NSWrapper
 
 root_dir = Path(__file__).parents[1]
 
@@ -21,13 +23,37 @@ cs.store(group="nerf", name="base_nerf", node=NeRFConfig)
 def main(cfg: Config) -> None:
     cfg_obj = OmegaConf.to_object(cfg)
     # print(cfg_obj)
+
+    # Randomly generate a name for the experiment
+    experiment_name = generate_slug(2)
     
     # Simple example to run data_preparation, here only with undersampling
     data_obj = DataPreparation(cfg.data_preparation)
     data_obj.save_images()
 
+    nerf_obj = NSWrapper(
+        input_dir=data_obj.config.output_dir,
+        pose_estimation_config=cfg.pose_estimation, 
+        nerf_config=cfg.nerf,
+        wandb_project=cfg.wandb_project,
+        experiment_name=experiment_name,)
+    # nerf_obj.process_data()
+    nerf_obj.run()
+    breakpoint()
+
+    entity = "sara"
+    experiment_id = wandb.runs(f"{entity}/{cfg_obj.wandb_project}", filters={"config.experiment_name": experiment_name})[0].id
+    print("Resume W&B.")
+    # Add a flag to disable wandb from the config file
+    if cfg_obj.wandb_log:
+        wandb.init(
+            project=cfg_obj.wandb_project, 
+            config={"prova": "prova"},
+            id=experiment_id,
+            # reinit=True,
+            resume=True,)
+    else:
+        wandb.init(project=cfg_obj.wandb_project, mode="disabled")
+
 if __name__ == "__main__":
     main()
-
-
-# data preparation

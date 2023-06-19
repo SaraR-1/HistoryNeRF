@@ -15,6 +15,12 @@ class NoiseConfig:
 
 @dataclass
 class DataPreparationConfig:
+    """
+    Add noise and undersample
+
+    Args:
+        input_dir: Either path to a folder containing images or path to an mp4 video
+    """
     input_dir: str
     output_dir: str
     overwrite_output: bool = False
@@ -38,7 +44,10 @@ class PoseEstimationConfig:
 
 @dataclass
 class NeRFConfig:
-    method: str = MISSING
+    method_name: str = MISSING
+    vis: Optional[str] = MISSING # {viewer,wandb,tensorboard,viewer+wandb,viewer+tensorboard} (default: viewer)
+    # project_name: Optional[str] = MISSING # Wandb project name
+    # experiment_name: Optional[str] = MISSING # Wandb experiment name
 
 @dataclass
 class EvaluationConfig:
@@ -50,5 +59,8 @@ class Config:
     pose_estimation: PoseEstimationConfig = MISSING
     nerf: NeRFConfig = MISSING
     # evaluation: EvaluationConfig = MISSING
-    wandb_project: str = MISSING
+    # project_name: str = MISSING # Wandb project name
+    # experiment_name: str = MISSING # Wandb experiment name
+    wandb_entity: Optional[str] = MISSING
+    wandb_project: Optional[str] = MISSING
     wandb_log: bool = True
