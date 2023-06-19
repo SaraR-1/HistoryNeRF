@@ -6,5 +6,6 @@ defaults:
   # - evaluation:
   - _self_
 
-wandb_project: "nerfstudio"
+wandb_entity: "sara"
+wandb_project: "nerfstudio_test"
 wandb_log: True

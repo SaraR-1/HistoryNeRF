@@ -20,8 +20,10 @@ class DataPreparation:
         '''
         Creates output directories within the specified output directory.
         '''
-        output_dir = Path(self.config.output_dir)
-        output_dir.mkdir(exist_ok=self.config.overwrite_output)
+        output_dir = Path(self.config.output_dir) / "images"
+        output_dir.mkdir(exist_ok=self.config.overwrite_output, parents=True)
+
+        self.config.output_dir = output_dir
 
 
     def video_to_frames(self):

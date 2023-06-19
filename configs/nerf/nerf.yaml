@@ -1,4 +1,7 @@
 defaults:
   - base_nerf
 
-method: "nerfacto"
+method_name: "nerfacto"
+vis: "wandb" # {viewer,wandb,tensorboard,viewer+wandb,viewer+tensorboard} (default: viewer)
+# project_name: "nerfstudio_test" 
+# experiment_name: # Wandb experiment name
