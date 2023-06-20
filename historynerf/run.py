@@ -37,23 +37,24 @@ def main(cfg: Config) -> None:
         nerf_config=cfg.nerf,
         wandb_project=cfg.wandb_project,
         experiment_name=experiment_name,)
-    # nerf_obj.process_data()
     nerf_obj.run()
-    breakpoint()
 
-    entity = "sara"
-    experiment_id = wandb.runs(f"{entity}/{cfg_obj.wandb_project}", filters={"config.experiment_name": experiment_name})[0].id
+    # Get the experiment id from the name
+    api = wandb.Api()
+    experiment_id = api.runs(f"{cfg_obj.wandb_entity}/{cfg_obj.wandb_project}", filters={"config.experiment_name": experiment_name})[0].id
+
     print("Resume W&B.")
     # Add a flag to disable wandb from the config file
     if cfg_obj.wandb_log:
         wandb.init(
-            project=cfg_obj.wandb_project, 
-            config={"prova": "prova"},
+            project=cfg_obj.wandb_project,
             id=experiment_id,
-            # reinit=True,
             resume=True,)
     else:
         wandb.init(project=cfg_obj.wandb_project, mode="disabled")
+    wandb.log({"prova": 5})
+    wandb.config.update(cfg)
+    wandb.finish()
 
 if __name__ == "__main__":
     main()
