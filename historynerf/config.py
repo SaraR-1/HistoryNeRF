@@ -46,8 +46,25 @@ class PoseEstimationConfig:
 class NeRFConfig:
     method_name: str = MISSING
     vis: Optional[str] = MISSING # {viewer,wandb,tensorboard,viewer+wandb,viewer+tensorboard} (default: viewer)
-    # project_name: Optional[str] = MISSING # Wandb project name
-    # experiment_name: Optional[str] = MISSING # Wandb experiment name
+    # steps-per-save: Optional[int] = MISSING # Number of steps between saves. (default: 2000)
+    # steps-per-eval-batch: Optional[int] = MISSING # Number of steps between randomly sampled batches of rays. (default: 500)
+    # steps-per-eval-image: Optional[int] = MISSING # Number of steps between single eval images. (default: 500)
+    # steps-per-eval-all-images: Optional[int] = MISSING # Number of steps between all eval images. (default: 25000)
+    # max-num-iterations: Optional[int] = MISSING # Maximum number of iterations. (default: 30000)
+
+    # machine.num-gpus: Optional[int] = MISSING # Number of GPUs to use. (default: 1)
+    # pipeline.datamanager.train-num-rays-per-batch # int Number of rays per batch to use per training iteration. (default: 4096)
+    # pipeline.datamanager.train-num-images-to-sample-from # Number of images to sample during training iteration. (default: -1, i.e. all images)
+    # pipeline.datamanager.eval-num-rays-per-batch # int Number of rays per batch to use per eval iteration. (default: 4096)
+    # pipeline.datamanager.eval-num-images-to-sample-from # Number of images to sample during eval iteration. (default: -1, i.e. all images)
+
+
+    # def __post_init__(self) -> None:
+    #     allowed_methods = ("depth-nerfacto" ,"dnerf", "instant-ngp", "instant-ngp-bounded", "mipnerf", "nerfacto", "nerfacto-big", 
+    #     "nerfplayer-nerfacto", "nerfplayer-ngp", "neus", "neus-facto", "vanilla-nerf", "volinga", "in2n", "in2n-small", "in2n-tiny", 
+    #     "kplanes", "kplanes-dynamic", "lerf", "lerf-big", "lerf-lite", "tetra-nerf", "tetra-nerf-original")
+    #     error_message = f"Wrong NeRF method name. Allowed methods: {allowed_methods}"
+    #     assert self.method_name in allowed_methods, error_message
 
 @dataclass
 class EvaluationConfig:

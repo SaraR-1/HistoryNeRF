@@ -78,7 +78,7 @@ class NSWrapper:
         Run example:
         ns-process-data images --data ../data/bridge_of_sighs/output_temp/every5frames/images --output-dir ../data/bridge_of_sighs/output_temp/every5frames/processed_data
         
-        ns-train nerfacto --data ../data/bridge_of_sighs/output_temp/every5frames/processed_data --viewer.websocket-port 8501
+        ns-train nerfacto --data ../data/bridge_of_sighs/output_temp/every5frames_II/processed_data --viewer.websocket-port 8501
         
         '''
         base_command = f"ns-process-data images --data {self.input_dir} --output-dir {self.output_dir_processed_data}"

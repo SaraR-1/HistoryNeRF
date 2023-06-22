@@ -23,7 +23,6 @@ cs.store(group="nerf", name="base_nerf", node=NeRFConfig)
 def main(cfg: Config) -> None:
     cfg_obj = OmegaConf.to_object(cfg)
     # print(cfg_obj)
-
     # Randomly generate a name for the experiment
     experiment_name = generate_slug(2)
     
