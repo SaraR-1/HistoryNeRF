@@ -1,25 +1,29 @@
 import cv2
+from matplotlib import pyplot as plt
 import numpy as np
+from pathlib import Path
 from PIL import Image
 from torch import Tensor
 import torch
+from torchmetrics import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
+from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
+
 
 from nerfstudio.cameras import camera_utils
 from nerfstudio.cameras.cameras import Cameras, CAMERA_MODEL_TO_TYPE, CameraType
 from nerfstudio.cameras.rays import RayBundle
+from nerfstudio.data.dataparsers import dycheck_dataparser
 from nerfstudio.models.base_model import Model
 from nerfstudio.utils.eval_utils import eval_setup
 from nerfstudio.utils.io import load_from_json
 from nerfstudio.exporter.exporter_utils import render_trajectory
-
-from pathlib import Path
 
 
 def process_poses(frames, dataparser_config):
     '''
     Process poses from COLMAP to NerfStudio format.
     '''
-    poses = [f["transform_matrix"] for f in frames]
+    images_path, poses = zip(*[[f["file_path"], f["transform_matrix"]] for f in frames])
     poses = torch.from_numpy(np.array(poses).astype(np.float32))
 
     orientation_method = dataparser_config.orientation_method
@@ -41,8 +45,13 @@ def process_poses(frames, dataparser_config):
 
     poses[:, :3, 3] *= scale_factor
 
-    return poses
-    
+    return images_path, poses
+
+def switch_image(img):
+    '''
+    Switch image from [H, W, C] to [1, C, H, W] for metrics computations
+    '''
+    return torch.moveaxis(torch.from_numpy(img), -1, 0)[None, ...]
 
 if __name__ == "__main__":
     # Arguments
@@ -51,17 +60,11 @@ if __name__ == "__main__":
 
     # Load config file
     config, pipeline, _, step = eval_setup(config_path=config_path, eval_num_rays_per_chunk=None, test_mode="test")
-    # num_rays_per_chunk = config.viewer.num_rays_per_chunk
-    # print(f"Number Ray Per Chunk: {num_rays_per_chunk}")
-    # assert self.viewer.num_rays_per_chunk == -1
-    # Or load_model(loaded_state: Dict[str, Any]) from nerfstudio.models.base_model.Model.load_model
-    # breakpoint()
-    # loaded_state = torch.load(checkpoint_path, map_location="cpu")
-    # model = Model().load_model(loaded_state=loaded_state)
+    gt_images_path = config.data
 
-    # TODO: create bundle from cameras
     cameras_json = load_from_json(camera_path)
     camera_type = CAMERA_MODEL_TO_TYPE[cameras_json["camera_model"]]
+
     # This is always fixed when transforming from COLMAP to NerfStudio - is it the "distortion_params" argument in Cameras?
     applied_transform = cameras_json["applied_transform"]
     # k1, k2, p1, p2 (other eventual ks) are the radial (k) and tangential (p) distortion coefficients
@@ -70,8 +73,6 @@ if __name__ == "__main__":
     frames = cameras_json["frames"]    
     dataparser_config = pipeline.datamanager.dataparser.config
 
-    # Naive example
-    # c2w = [Tensor(frames[0]['transform_matrix']), Tensor(frames[1]['transform_matrix'])]
     width, height, fx, fy, cx, cy = [cameras_json[i] for i in ['w', 'h', 'fl_x', 'fl_y', 'cx', 'cy']]
 
     distortion_params = camera_utils.get_distortion_params(
@@ -84,16 +85,19 @@ if __name__ == "__main__":
     )
 
     downscale_factor = dataparser_config.downscale_factor
+    max_dim_flag = max(width, height) > 1600
     if downscale_factor is None:
-        downscale_factor = 0.5 if max(width, height) > 1600 else 1.0
+        downscale_factor = 0.5 if max_dim_flag else 1.0
 
-    processed_poses = process_poses(frames, dataparser_config)
+    height_downscale, width_downscale = int(height * downscale_factor), int(width * downscale_factor)
 
-    for pose_idx in range(0, processed_poses.shape[0]):
-        # c2w = Tensor(frames[frame_num]['transform_matrix'])[None, :3, :]
-        # camera = pipeline.datamanager.train_dataset.cameras[0]
+    images_path, processed_poses = process_poses(frames, dataparser_config)
 
-        # c2w = Tensor(applied_transform) @ Tensor(frames[frame_num]['transform_matrix'])
+    images_pred = torch.empty(0, 3, height_downscale, width_downscale)
+    images_gt = torch.empty(0, 3, height_downscale, width_downscale)
+
+    # for pose_idx in range(0, processed_poses.shape[0]):
+    for pose_idx in range(0, 5):
 
         camera = Cameras(
             width=width, 
@@ -116,9 +120,41 @@ if __name__ == "__main__":
             rendered_resolution_scaling_factor = 1.0,
         )
         
-        image = image[0]
-        from matplotlib import pyplot as plt
-        plt.imsave(f"./test_{pose_idx}.png", image)
+        # image = image[0]
+        # images_pred = torch.cat((images_pred, switch_image(image[0].astype(np.float64))), dim=0)
+        images_pred = torch.cat((images_pred, switch_image(image[0])), dim=0)
 
+        # plt.imsave(f"./test_{pose_idx}.png", image)
 
+        # filename_gt = Path("images_2") / Path(images_path[pose_idx]).name if max_dim_flag else images_path[pose_idx]
+        image_gt = plt.imread(str(gt_images_path / images_path[pose_idx]), )
+        # Downscale the image
+        image_gt = dycheck_dataparser.downscale(image_gt, int(1/downscale_factor)).astype(np.float64)
+        # Normalize the image
+        image_gt /=  255.0
+        images_gt = torch.cat((images_gt, switch_image(image_gt)), dim=0)
+        
+        # combined_rgb = torch.cat([image, rgb_coarse, rgb_fine], dim=1)
+        # combined_acc = torch.cat([acc_coarse, acc_fine], dim=1)
+        # combined_depth = torch.cat([depth_coarse, depth_fine], dim=1)
 
+        # # Switch images from [H, W, C] to [1, C, H, W] for metrics computations
+        # image = torch.moveaxis(image, -1, 0)[None, ...]
+        # rgb_coarse = torch.moveaxis(rgb_coarse, -1, 0)[None, ...]
+        # rgb_fine = torch.moveaxis(rgb_fine, -1, 0)[None, ...]
+
+        # coarse_psnr = self.psnr(image, rgb_coarse)
+            # metrics
+    psnr = PeakSignalNoiseRatio(data_range=1.0, reduction='none', dim=[1,2,3])
+    ssim = StructuralSimilarityIndexMeasure(data_range=1.0, reduction='none')
+    # lpips does not allow reduction='none'
+    lpips = LearnedPerceptualImagePatchSimilarity(normalize=True)
+    
+    psnr_values = psnr(images_pred, images_gt)
+    ssim_values = ssim(images_pred, images_gt)
+    lpips_values = Tensor([lpips(images_pred[i].unsqueeze(0).float(), images_gt[i].unsqueeze(0).float()).item() for i in range(images_pred.shape[0])])
+
+    print(psnr_values)
+    print(ssim_values)
+    print(lpips_values)
+    # breakpoint()
