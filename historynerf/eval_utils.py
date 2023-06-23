@@ -23,7 +23,7 @@ def process_poses(frames, dataparser_config):
     '''
     Process poses from COLMAP to NerfStudio format.
     '''
-    images_path, poses = zip(*[[f["file_path"], f["transform_matrix"]] for f in frames])
+    images_path, poses = zip(*[[Path(f["file_path"]), f["transform_matrix"]] for f in frames])
     poses = torch.from_numpy(np.array(poses).astype(np.float32))
 
     orientation_method = dataparser_config.orientation_method
@@ -45,7 +45,7 @@ def process_poses(frames, dataparser_config):
 
     poses[:, :3, 3] *= scale_factor
 
-    return images_path, poses
+    return list(images_path), poses
 
 def switch_image(img):
     '''
@@ -93,11 +93,11 @@ if __name__ == "__main__":
 
     images_path, processed_poses = process_poses(frames, dataparser_config)
 
+
     images_pred = torch.empty(0, 3, height_downscale, width_downscale)
     images_gt = torch.empty(0, 3, height_downscale, width_downscale)
 
-    # for pose_idx in range(0, processed_poses.shape[0]):
-    for pose_idx in range(0, 5):
+    for pose_idx in range(0, processed_poses.shape[0]):
 
         camera = Cameras(
             width=width, 
@@ -134,17 +134,6 @@ if __name__ == "__main__":
         image_gt /=  255.0
         images_gt = torch.cat((images_gt, switch_image(image_gt)), dim=0)
         
-        # combined_rgb = torch.cat([image, rgb_coarse, rgb_fine], dim=1)
-        # combined_acc = torch.cat([acc_coarse, acc_fine], dim=1)
-        # combined_depth = torch.cat([depth_coarse, depth_fine], dim=1)
-
-        # # Switch images from [H, W, C] to [1, C, H, W] for metrics computations
-        # image = torch.moveaxis(image, -1, 0)[None, ...]
-        # rgb_coarse = torch.moveaxis(rgb_coarse, -1, 0)[None, ...]
-        # rgb_fine = torch.moveaxis(rgb_fine, -1, 0)[None, ...]
-
-        # coarse_psnr = self.psnr(image, rgb_coarse)
-            # metrics
     psnr = PeakSignalNoiseRatio(data_range=1.0, reduction='none', dim=[1,2,3])
     ssim = StructuralSimilarityIndexMeasure(data_range=1.0, reduction='none')
     # lpips does not allow reduction='none'
@@ -153,8 +142,20 @@ if __name__ == "__main__":
     psnr_values = psnr(images_pred, images_gt)
     ssim_values = ssim(images_pred, images_gt)
     lpips_values = Tensor([lpips(images_pred[i].unsqueeze(0).float(), images_gt[i].unsqueeze(0).float()).item() for i in range(images_pred.shape[0])])
-
     print(psnr_values)
     print(ssim_values)
     print(lpips_values)
+
+    breakpoint()
+    # Check on the validation set:
+    validation_filenames = pipeline.datamanager.eval_dataset._dataparser_outputs.image_filenames
+    validation_filenames = [Path(i).name for i in validation_filenames]
+    # Mask images_path contained in validation_filenames
+    validation_mask = [i.name in validation_filenames for i in images_path]
+
+    print(psnr_values[validation_mask].mean())
+    print(ssim_values[validation_mask].mean())
+    print(lpips_values[validation_mask].mean())
+
+
     # breakpoint()
