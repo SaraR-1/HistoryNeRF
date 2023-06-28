@@ -3,5 +3,22 @@ defaults:
 
 method_name: "nerfacto"
 vis: "wandb" # {viewer,wandb,tensorboard,viewer+wandb,viewer+tensorboard} (default: viewer)
-# project_name: "nerfstudio_test" 
-# experiment_name: # Wandb experiment name
+steps_per_save: 
+steps_per_eval_batch: 
+steps_per_eval_image: 
+steps_per_eval_all_images: 
+max_num_iterations: 
+
+machine:
+  num_gpus: 1
+
+pipeline:
+  model:
+    use_gradient_scaling: True
+  datamanager:
+    train_num_rays_per_batch:
+    train_num_images_to_sample_from: 
+    eval_num_rays_per_batch: 
+    eval_num_images_to_sample_from: 
+
+

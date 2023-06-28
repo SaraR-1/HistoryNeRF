@@ -43,41 +43,56 @@ class PoseEstimationConfig:
     include_depth_debug_flag: Optional[bool] = MISSING # If --use-sfm-depth and this flag is True, also export debug images showing Sf overlaid upon input images. (default: False) 
 
 @dataclass
+class NeRFDataManagerConfig:
+    train_num_rays_per_batch: Optional[int] = MISSING # Number of rays per batch to use per training iteration. (default: 4096)
+    train_num_images_to_sample_from: Optional[int] = MISSING # Number of images to sample during training iteration. (default: -1, i.e. all images)
+    eval_num_rays_per_batch: Optional[int] = MISSING # Number of rays per batch to use per eval iteration. (default: 4096)
+    eval_num_images_to_sample_from: Optional[int] = MISSING # Number of images to sample during eval iteration. (default: -1, i.e. all images)
+
+@dataclass
+class NeRFModelConfig:
+    use_gradient_scaling: Optional[bool] = MISSING # Scale gradients by the ray distance to the pixel as suggested in Radiance Field Gradient Scaling for Unbiased Near-Camera Training paper (default: False)
+
+@dataclass
+class NeRFPipelineConfig:
+    datamanager: NeRFDataManagerConfig
+    model: NeRFModelConfig
+
+@dataclass
+class MachineConfig:
+    num_gpus: Optional[int] = MISSING # Number of GPUs to use. (default: 1)
+
+@dataclass
 class NeRFConfig:
     method_name: str = MISSING
     vis: Optional[str] = MISSING # {viewer,wandb,tensorboard,viewer+wandb,viewer+tensorboard} (default: viewer)
-    # steps-per-save: Optional[int] = MISSING # Number of steps between saves. (default: 2000)
-    # steps-per-eval-batch: Optional[int] = MISSING # Number of steps between randomly sampled batches of rays. (default: 500)
-    # steps-per-eval-image: Optional[int] = MISSING # Number of steps between single eval images. (default: 500)
-    # steps-per-eval-all-images: Optional[int] = MISSING # Number of steps between all eval images. (default: 25000)
-    # max-num-iterations: Optional[int] = MISSING # Maximum number of iterations. (default: 30000)
+    steps_per_save: Optional[int] = MISSING # Number of steps between saves. (default: 2000)
+    steps_per_eval_batch: Optional[int] = MISSING # Number of steps between randomly sampled batches of rays. (default: 500)
+    steps_per_eval_image: Optional[int] = MISSING # Number of steps between single eval images. (default: 500)
+    steps_per_eval_all_images: Optional[int] = MISSING # Number of steps between all eval images. (default: 25000)
+    max_num_iterations: Optional[int] = MISSING # Maximum number of iterations. (default: 30000)
 
-    # machine.num-gpus: Optional[int] = MISSING # Number of GPUs to use. (default: 1)
-    # pipeline.datamanager.train-num-rays-per-batch # int Number of rays per batch to use per training iteration. (default: 4096)
-    # pipeline.datamanager.train-num-images-to-sample-from # Number of images to sample during training iteration. (default: -1, i.e. all images)
-    # pipeline.datamanager.eval-num-rays-per-batch # int Number of rays per batch to use per eval iteration. (default: 4096)
-    # pipeline.datamanager.eval-num-images-to-sample-from # Number of images to sample during eval iteration. (default: -1, i.e. all images)
+    pipeline: NeRFPipelineConfig = MISSING
+    machine: MachineConfig = MISSING
 
-
-    # def __post_init__(self) -> None:
-    #     allowed_methods = ("depth-nerfacto" ,"dnerf", "instant-ngp", "instant-ngp-bounded", "mipnerf", "nerfacto", "nerfacto-big", 
-    #     "nerfplayer-nerfacto", "nerfplayer-ngp", "neus", "neus-facto", "vanilla-nerf", "volinga", "in2n", "in2n-small", "in2n-tiny", 
-    #     "kplanes", "kplanes-dynamic", "lerf", "lerf-big", "lerf-lite", "tetra-nerf", "tetra-nerf-original")
-    #     error_message = f"Wrong NeRF method name. Allowed methods: {allowed_methods}"
-    #     assert self.method_name in allowed_methods, error_message
+    def __post_init__(self) -> None:
+        allowed_methods = ("depth-nerfacto" ,"dnerf", "instant-ngp", "instant-ngp-bounded", "mipnerf", "nerfacto", "nerfacto-big", 
+        "nerfplayer-nerfacto", "nerfplayer-ngp", "neus", "neus-facto", "vanilla-nerf", "volinga", "in2n", "in2n-small", "in2n-tiny", 
+        "kplanes", "kplanes-dynamic", "lerf", "lerf-big", "lerf-lite", "tetra-nerf", "tetra-nerf-original")
+        error_message = f"Wrong NeRF method name. Allowed methods: {allowed_methods}"
+        assert self.method_name in allowed_methods, error_message
 
 @dataclass
 class EvaluationConfig:
-    pass
+    camera_pose_dir: Optional[str] = MISSING
+    gt_images_dir: Optional[str] = MISSING
 
 @dataclass
 class Config:
     data_preparation: DataPreparationConfig = MISSING
     pose_estimation: PoseEstimationConfig = MISSING
     nerf: NeRFConfig = MISSING
-    # evaluation: EvaluationConfig = MISSING
-    # project_name: str = MISSING # Wandb project name
-    # experiment_name: str = MISSING # Wandb experiment name
+    evaluation: EvaluationConfig = MISSING
     wandb_entity: Optional[str] = MISSING
     wandb_project: Optional[str] = MISSING
     wandb_log: bool = True

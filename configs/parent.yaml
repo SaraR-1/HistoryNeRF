@@ -9,3 +9,7 @@ defaults:
 wandb_entity: "sara"
 wandb_project: "nerfstudio_test"
 wandb_log: True
+
+evaluation:
+  camera_pose_dir: 
+  gt_images_dir:

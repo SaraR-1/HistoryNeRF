@@ -61,6 +61,7 @@ if __name__ == "__main__":
     # Load config file
     config, pipeline, _, step = eval_setup(config_path=config_path, eval_num_rays_per_chunk=None, test_mode="test")
     gt_images_path = config.data
+    breakpoint()
 
     cameras_json = load_from_json(camera_path)
     camera_type = CAMERA_MODEL_TO_TYPE[cameras_json["camera_model"]]
