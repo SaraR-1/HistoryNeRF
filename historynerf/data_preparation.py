@@ -58,30 +58,31 @@ class DataPreparation:
         '''
         Unsersample the images in the image list. If rnd_seed=None, then the sampling is non-random but based on closeness - requires some gold standard data for camera poses
         '''
+        image_list = sorted([str(i.name) for i in Path(self.config.input_dir).iterdir()])
         if self.config.sampling.sample_size:
-            image_list = sorted([str(i.name) for i in Path(self.config.input_dir).iterdir()])
             if self.config.sampling.rnd_seed:
                 random.Random(self.config.sampling.rnd_seed).shuffle(image_list)
             undersample_list = image_list[:self.config.sampling.sample_size]
 
             return undersample_list
-        return []
+        return image_list
     
     def undersample_video(self, 
                                frames_folder=True):
         '''
         Undersample the sequential frames of a video. Take a frame every step_size frames. 
         '''
+        frames_dir = Path(self.config.output_dir) / "frames" if frames_folder else Path(self.config.output_dir)
+        # Overwrite the input direction to be pointing to the frames rather then the video
+        self.config.input_dir = frames_dir    
+        # Sort filenames numerically
+        file_names = [Path(i.name) for i in Path(self.config.input_dir).iterdir()]
+        sorted_files = sorted(file_names, key=lambda x: int(x.stem))
+
         if self.config.sampling.video_sample_step:
-            frames_dir = Path(self.config.output_dir) / "frames" if frames_folder else Path(self.config.output_dir)
-            # Overwrite the input direction to be pointing to the frames rather then the video
-            self.config.input_dir = frames_dir    
-            # Sort filenames numerically
-            file_names = [Path(i.name) for i in Path(self.config.input_dir).iterdir()]
-            sorted_files = sorted(file_names, key=lambda x: int(x.stem))
             undersample_list = sorted_files[::self.config.sampling.video_sample_step]
             return undersample_list
-        return []
+        return sorted_files
 
     def write_undersample_list(self, undersample_list):
         '''
@@ -114,7 +115,7 @@ class DataPreparation:
             # Copy the image to the output director
             shutil.copy(image_path, Path(self.config.output_dir) / image)
     
-        # If input data is video, delete the temporary repository with all frames
+        # If input data is video, delete the temporary repository with all frames (unless specified otherwise)
         if video_flag:
             frames_dir = Path(self.config.output_dir) / "frames" if frames_folder else Path(self.config.output_dir)
             shutil.rmtree(frames_dir)
