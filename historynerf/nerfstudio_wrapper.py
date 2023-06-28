@@ -1,43 +1,40 @@
 import os
 from pathlib import Path
+import json
 
 from historynerf.config import PoseEstimationConfig, NeRFConfig
+from omegaconf.dictconfig import DictConfig
+
 
 def argument_name_parser(argument):
     return argument.replace("_", "-")
 
 def flag_to_argument(flag_name, flag_value):
-    """
+    '''
     Convert a flag to an argument. Remove "flag" from the flag name and add "no-" if the flag value is False.
-    """
+    '''
     flag_name = flag_name.replace("-flag", "")
     return flag_name if flag_value else f"no-{flag_name}"
 
-def parse_arguments(arguments):
-    """
-    Parse the arguments to be used in the command line.
-
-    Parameters
-    ----------
-    arguments : dict
-        Dictionary with the arguments to be parsed.
-    
-    Returns
-    -------
-    arguments_command : str
-        String with the arguments to be used in the command line.
-    """
-    arguments_command = ""
-    for argument_name, argument_value in arguments.items():
-        # Only add the argument if it is not None
-        if argument_value:
-            argument_name = argument_name_parser(argument_name)
-            if "flag" in argument_name:
-                argument_command = flag_to_argument(argument_name, argument_value)
+def dict_to_arg_string(dictionary, prefix=''):
+    '''
+    Convert a dictionary to a string with the arguments to be used in the command line.
+    '''
+    result = ""
+    for key, value in dictionary.items():
+        if value is None:
+            continue
+        if isinstance(value, DictConfig):
+            result += dict_to_arg_string(value, prefix=f'{prefix}{key}.')
+        else:
+            key = argument_name_parser(key)
+            if 'flag' in key:
+                flag_name = flag_to_argument(key, value)
+                result += f'--{prefix}{flag_name} '
             else:
-                argument_command = f"{argument_name} {argument_value}"
-            arguments_command += f" --{argument_command}"
-    return arguments_command
+                result += f'--{prefix}{key} {value} '
+    return result
+
 
 class NSWrapper:
     def __init__(
@@ -82,20 +79,25 @@ class NSWrapper:
         
         '''
         base_command = f"ns-process-data images --data {self.input_dir} --output-dir {self.output_dir_processed_data}"
-        arguments_command = parse_arguments(self.pose_estimation_config)
-        command = f"{base_command} {arguments_command}"
+
+        arg_string = dict_to_arg_string(self.pose_estimation_config)
+        command = f"{base_command} {arg_string}"
+
         os.system(command)
 
     def train(self):
         # Use --vis {wandb, tensorboard, viewer+wandb, viewer+tensorboard} to run with eval.
         base_command = f"ns-train {self.nerf_config.method_name} --data {self.output_dir_processed_data} --output-dir {self.output_dir_nerf}"
+        
         # Parse arguments, exclude self.nerf_config.method_name
         nerf_config = {k:v for k, v in self.nerf_config.items() if k != "method_name"}
-        arguments_command = parse_arguments(nerf_config)
-        command = f"{base_command} {arguments_command}"
+        arg_string = dict_to_arg_string(nerf_config)
+        command = f"{base_command} {arg_string}"
+
         if self.nerf_config.vis == "wandb":
             command += f" --project_name {self.wandb_project}"
             command += f" --experiment-name {self.experiment_name}"
+            
         os.system(command)
 
 
