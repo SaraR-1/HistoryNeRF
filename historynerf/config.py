@@ -84,7 +84,8 @@ class NeRFConfig:
 
 @dataclass
 class EvaluationConfig:
-    camera_pose_dir: Optional[str] = MISSING
+    camera_pose_path: Optional[str] = MISSING
+    # config_path: Optional[str] = MISSING # No need, saving it after nerf training - so already know the path
     gt_images_dir: Optional[str] = MISSING
 
 @dataclass

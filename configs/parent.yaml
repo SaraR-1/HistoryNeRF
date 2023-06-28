@@ -11,5 +11,5 @@ wandb_project: "nerfstudio_test"
 wandb_log: True
 
 evaluation:
-  camera_pose_dir: 
+  camera_pose_path: 
   gt_images_dir:
