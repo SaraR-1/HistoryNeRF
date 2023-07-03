@@ -2,7 +2,7 @@ defaults:
   - base_nerf
 
 method_name: "nerfacto"
-vis: "wandb" # {viewer,wandb,tensorboard,viewer+wandb,viewer+tensorboard} (default: viewer)
+vis: "viewer+wandb" # {viewer,wandb,tensorboard,viewer+wandb,viewer+tensorboard} (default: viewer)
 steps_per_save: 
 steps_per_eval_batch: 
 steps_per_eval_image: 

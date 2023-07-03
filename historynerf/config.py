@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from omegaconf import MISSING
 
 @dataclass
@@ -24,6 +24,8 @@ class DataPreparationConfig:
     input_dir: str
     output_dir: str
     overwrite_output: bool = False
+    # resize: bool = False
+    resize: Optional[List[int]] = None
     sampling: SamplingConfig = MISSING
     # noise: NoiseConfig = MISSING
 
@@ -97,3 +99,6 @@ class Config:
     wandb_entity: Optional[str] = MISSING
     wandb_project: Optional[str] = MISSING
     wandb_log: bool = True
+
+
+
