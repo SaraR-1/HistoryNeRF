@@ -112,8 +112,15 @@ class DataPreparation:
 
         for image in undersample_list:
             image_path = Path(self.config.input_dir) / image
-            # Copy the image to the output director
-            shutil.copy(image_path, Path(self.config.output_dir) / image)
+            if self.config.resize:
+                # Read and resize the image, then save it
+                img = cv2.imread(str(image_path))
+                img = cv2.resize(img, (self.config.resize[0], self.config.resize[1]), cv2.INTER_AREA)
+                cv2.imwrite(str(Path(self.config.output_dir) / image), img)
+            else:
+                # Copy the image to the output director
+                shutil.copy(image_path, Path(self.config.output_dir) / image)
+
     
         # If input data is video, delete the temporary repository with all frames (unless specified otherwise)
         if video_flag:

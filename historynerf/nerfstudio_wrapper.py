@@ -78,6 +78,7 @@ class NSWrapper:
         ns-train nerfacto --data ../data/bridge_of_sighs/output_temp/every5frames_II/processed_data --viewer.websocket-port 8501
         
         '''
+        #  --verbose
         base_command = f"ns-process-data images --data {self.input_dir} --output-dir {self.output_dir_processed_data}"
 
         arg_string = dict_to_arg_string(self.pose_estimation_config)
@@ -97,7 +98,7 @@ class NSWrapper:
         if self.nerf_config.vis == "wandb":
             command += f" --project_name {self.wandb_project}"
             command += f" --experiment-name {self.experiment_name}"
-            
+
         os.system(command)
 
 

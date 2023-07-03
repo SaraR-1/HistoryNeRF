@@ -40,6 +40,7 @@ def main(cfg: Config) -> None:
 
     # Get the experiment id from the name
     api = wandb.Api()
+    # breakpoint()
     experiment_id = api.runs(f"{cfg_obj.wandb_entity}/{cfg_obj.wandb_project}", filters={"config.experiment_name": experiment_name})[0].id
 
     print("Resume W&B.")
