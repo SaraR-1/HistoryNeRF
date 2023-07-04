@@ -89,22 +89,26 @@ class NSWrapper:
     def train(self):
         # Use --vis {wandb, tensorboard, viewer+wandb, viewer+tensorboard} to run with eval.
         base_command = f"ns-train {self.nerf_config.method_name} --data {self.output_dir_processed_data} --output-dir {self.output_dir_nerf}"
-        
-        # Parse arguments, exclude self.nerf_config.method_name
-        nerf_config = {k:v for k, v in self.nerf_config.items() if k != "method_name"}
+        nerf_config = {k:v for k, v in self.nerf_config.items() if k not in ["method_name", "dataparser_name", "train_split_fraction"]}
         arg_string = dict_to_arg_string(nerf_config)
         command = f"{base_command} {arg_string}"
 
-        if self.nerf_config.vis == "wandb":
+        if "wandb" in self.nerf_config.vis:
             command += f" --project_name {self.wandb_project}"
             command += f" --experiment-name {self.experiment_name}"
 
+        command += f" {self.nerf_config.dataparser_name} --train-split-fraction {self.nerf_config.train_split_fraction}"
         os.system(command)
+
+
+        # 'ns-train nerfacto nerfstudio-data --train-split-fraction 1.0 --data /workspace/data/bridge_of_sighs/output/gold_standard/processed_data --output-dir /workspace/data/bridge_of_sighs/output/gold_standard/nerf --vis viewer+wandb --pipeline.model.use-gradient-scaling False --machine.num-gpus 1 '
 
 
     def render(self):
         # For rendering the video, the camera path must first be created and extracted manually using viewer
         pass
+        # ns-render spiral --load-config=/workspace/data/bridge_of_sighs/output/gold_standard/nerf/slick-swan/nerfacto/2023-07-04_141837/config.yml --output-path=/workspace/data/bridge_of_sighs/output/gold_standard/nerf/slick-swan/nerfacto/2023-07-04_141837/output_spiral.mp4
+
 
     def run(self):
         self.process_data()

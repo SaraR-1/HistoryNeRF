@@ -67,8 +67,7 @@ class DataPreparation:
             return undersample_list
         return image_list
     
-    def undersample_video(self, 
-                               frames_folder=True):
+    def undersample_video(self, frames_folder=True):
         '''
         Undersample the sequential frames of a video. Take a frame every step_size frames. 
         '''
@@ -100,9 +99,12 @@ class DataPreparation:
         Copy the images in the undersample list to the output directory
         '''
         # Check if the input directory is a folder of images or a video
-        video_flag = False           
+        video_flag = False    
+        # Skip saving the images if no data preparation (sampling, resizing, frames from video) has been done
+        skip_save = False       
         if Path(self.config.input_dir).is_dir():
             undersample_list = self.undersample()
+            skip_save = self.config.sampling.sample_size is None
         else:
             frames_folder = True
             video_flag = True  
@@ -110,19 +112,20 @@ class DataPreparation:
             undersample_list = self.undersample_video(frames_folder=frames_folder)
         self.write_undersample_list(undersample_list)
 
-        for image in undersample_list:
-            image_path = Path(self.config.input_dir) / image
-            if self.config.resize:
-                # Read and resize the image, then save it
-                img = cv2.imread(str(image_path))
-                img = cv2.resize(img, (self.config.resize[0], self.config.resize[1]), cv2.INTER_AREA)
-                cv2.imwrite(str(Path(self.config.output_dir) / image), img)
-            else:
-                # Copy the image to the output director
-                shutil.copy(image_path, Path(self.config.output_dir) / image)
+        if not skip_save:
+            for image in undersample_list:
+                image_path = Path(self.config.input_dir) / image
+                if self.config.resize:
+                    # Read and resize the image, then save it
+                    img = cv2.imread(str(image_path))
+                    img = cv2.resize(img, (self.config.resize[0], self.config.resize[1]), cv2.INTER_AREA)
+                    cv2.imwrite(str(Path(self.config.output_dir) / image), img)
+                else:
+                    # Copy the image to the output director
+                    shutil.copy(image_path, Path(self.config.output_dir) / image)
 
-    
-        # If input data is video, delete the temporary repository with all frames (unless specified otherwise)
-        if video_flag:
-            frames_dir = Path(self.config.output_dir) / "frames" if frames_folder else Path(self.config.output_dir)
-            shutil.rmtree(frames_dir)
+        
+            # If input data is video, delete the temporary repository with all frames (unless specified otherwise)
+            if video_flag:
+                frames_dir = Path(self.config.output_dir) / "frames" if frames_folder else Path(self.config.output_dir)
+                shutil.rmtree(frames_dir)

@@ -91,3 +91,6 @@ if __name__ == "__main__":
     output_dir = Path("../data/bridge_of_sighs/prova_split")
     data_split = SplitData(camera_path, 10, images_dir, output_dir)
     data_split.create_data()
+
+
+

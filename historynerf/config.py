@@ -44,6 +44,17 @@ class PoseEstimationConfig:
     use_sfm_depth_flag: Optional[bool] = MISSING # If True, export and use depth maps induced from SfM points. (default: False)
     include_depth_debug_flag: Optional[bool] = MISSING # If --use-sfm-depth and this flag is True, also export debug images showing Sf overlaid upon input images. (default: False) 
 
+
+# @dataclass
+# class NeRFDataParserConfig:
+#     train_split_fraction: Optional[float] = MISSING # default 0.9
+#     scale_factor: Optional[float] = MISSING # How much to scale the camera origins by. (default: 1.0)                                                          │
+#     downscale_factor: Optional[int] = MISSING # How much to downscale images. If not set, images are chosen such that the max dimension is <1600px. (default: None)                                                                                                            │
+# │ --scene-scale FLOAT     How much to scale the region of interest by. (default: 1.0)                                                      │
+# │ --orientation-method # {pca,up,vertical,none} The method to use for orientation. (default: up)                                                                 │
+# │ --center-method  # {poses,focus,none} The method to use to center the poses. (default: poses)                                                          │
+# │ --auto-scale-poses: opt  # {True,False}Whether to automatically scale the poses to fit in +/- 1 bounding box. (default: True)                           │
+
 @dataclass
 class NeRFDataManagerConfig:
     train_num_rays_per_batch: Optional[int] = MISSING # Number of rays per batch to use per training iteration. (default: 4096)
@@ -67,6 +78,8 @@ class MachineConfig:
 @dataclass
 class NeRFConfig:
     method_name: str = MISSING
+    dataparser_name: Optional[str] = MISSING # default nerfstudio-data
+    train_split_fraction: Optional[float] = MISSING # The fraction of images to use for training. The remaining images are for eval. (default: 0.9)
     vis: Optional[str] = MISSING # {viewer,wandb,tensorboard,viewer+wandb,viewer+tensorboard} (default: viewer)
     steps_per_save: Optional[int] = MISSING # Number of steps between saves. (default: 2000)
     steps_per_eval_batch: Optional[int] = MISSING # Number of steps between randomly sampled batches of rays. (default: 500)
@@ -76,6 +89,7 @@ class NeRFConfig:
 
     pipeline: NeRFPipelineConfig = MISSING
     machine: MachineConfig = MISSING
+    # dataparser: NeRFDataParserConfig = MISSING
 
     def __post_init__(self) -> None:
         allowed_methods = ("depth-nerfacto" ,"dnerf", "instant-ngp", "instant-ngp-bounded", "mipnerf", "nerfacto", "nerfacto-big", 
