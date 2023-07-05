@@ -3,19 +3,30 @@ from pathlib import Path
 import shutil
 import json
 
+from spock import SpockBuilder
+from spock import spock
+
 from nerfstudio.utils.io import load_from_json
+
+@spock
+class SplitDataConfig:
+    camera_path: Path
+    n: int
+    images_dir: Path
+    output_dir: Path
 
 
 class SplitData:
     '''
     Split the data into training and test sets.
     '''
-    def __init__(self, camera_path: Path, n: int, images_dir: Path, output_dir: Path):
-        self.cameras_json = load_from_json(camera_path)
+    def __init__(self, config):
+    # camera_path: Path, n: int, images_dir: Path, output_dir: Path):
+        self.cameras_json = load_from_json(config.camera_path)
         self.frames = self.cameras_json["frames"]
-        self.n = n
-        self.images_dir = images_dir
-        self.output_dir = output_dir
+        self.n = config.n
+        self.images_dir = config.images_dir
+        self.output_dir = config.output_dir
 
         self.test_set = self.get_test_set()
         self.train_set = self.get_train_set()
@@ -85,12 +96,15 @@ class SplitData:
             self.create_data_folder(split)
             self.create_camera_file(split)
 
-if __name__ == "__main__":
-    camera_path = Path("../data/bridge_of_sighs/output_temp/every5frames_III/processed_data/transforms.json")
-    images_dir = Path("../data/bridge_of_sighs/output_temp/every5frames_III/processed_data/images")
-    output_dir = Path("../data/bridge_of_sighs/prova_split")
-    data_split = SplitData(camera_path, 10, images_dir, output_dir)
+def main():
+    # Chain the generate function to the class call
+    config = SpockBuilder(SplitDataConfig, desc="Split Data into Train and Test").generate()
+    # One can now access the Spock config object by class name with the returned namespace
+    data_split = SplitData(config.SplitDataConfig)
     data_split.create_data()
 
+if __name__ == "__main__":
+    main()
 
 
+# python3 historynerf/split_data.py --SplitDataConfig.camera_path /workspace/data/bridge_of_sighs/output/gold_standard/processed_data/transforms.json --SplitDataConfig.n 80 --SplitDataConfig.images_dir /workspace/data/bridge_of_sighs/output/gold_standard/processed_data/images --SplitDataConfig.output_dir /workspace/data/bridge_of_sighs/data
