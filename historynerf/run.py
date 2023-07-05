@@ -59,6 +59,3 @@ def main(cfg: Config) -> None:
 if __name__ == "__main__":
     main()
 
-
-
-# python3 historynerf/run.py wandb_project=bridge_of_sighs data_preparation.input_dir=/workspace/data/bridge_of_sighs/output/gold_standard/processed_data data_preparation.output_dir=/workspace/data/bridge_of_sighs/output/gold_standard data_preparation.overwrite_output=True pose_estimation.skip_image_processing_flag=True pose_estimation.skip_colmap_flag=True pose_estimation.colmap_model_path=/workspace/data/bridge_of_sighs/output/gold_standard/processed_data/colmap/sparse/0 pose_estimation.matching_method=sequential nerf.train_split_fraction=1. nerf.pipeline.model.use_gradient_scaling=False
