@@ -7,6 +7,7 @@ import torch
 from torch import Tensor
 from torchmetrics import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
+import json
 
 from nerfstudio.cameras import camera_utils
 from nerfstudio.cameras.cameras import Cameras, CAMERA_MODEL_TO_TYPE, CameraType
@@ -21,6 +22,7 @@ from nerfstudio.exporter.exporter_utils import render_trajectory
 class DataManager:
     def __init__(self, config_path: str, camera_path: str, gt_images_dir: str=None):
         self.config, self.pipeline, _, self.step = eval_setup(config_path=config_path, eval_num_rays_per_chunk=None, test_mode="test")
+        
         if not gt_images_dir:
             gt_images_dir = self.config.data
 
@@ -62,8 +64,11 @@ class DataManager:
 
 
 class Evaluator:
-    def __init__(self, config_path: str, camera_path: str, gt_images_dir: str=None):
+    def __init__(self, config_path: str, camera_path: str, gt_images_dir: str=None, output_dir: str=None):
         self.data_manager = DataManager(config_path, camera_path, gt_images_dir)
+
+        self.output_dir = output_dir
+        self.images_path, self.pred_images, self.gt_images = self.get_data()
         
     def get_data(self):
         '''
@@ -111,7 +116,7 @@ class Evaluator:
         gt_images = [self.data_manager.read_image(self.data_manager.gt_images_dir / img_path, downscale_factor) for img_path in images_path]
         gt_images = torch.tensor(np.array(gt_images)).permute(0, 3, 1, 2)
 
-        return pred_images, gt_images
+        return images_path, pred_images, gt_images
 
     def compute_metrics(self):
         '''
@@ -121,20 +126,39 @@ class Evaluator:
         ssim = StructuralSimilarityIndexMeasure(data_range=1.0, reduction='none')
         lpips = LearnedPerceptualImagePatchSimilarity(normalize=True)
 
-        pred_images, gt_images = self.get_data()
+        psnr_values = psnr(self.pred_images, self.gt_images)
+        ssim_values = ssim(self.pred_images, self.gt_images)
+        lpips_values = Tensor([lpips(self.pred_images[i].unsqueeze(0).float(), self.gt_images[i].unsqueeze(0).float()).item() for i in range(self.pred_images.shape[0])])
 
-        psnr_values = psnr(pred_images, gt_images)
-        ssim_values = ssim(pred_images, gt_images)
-        lpips_values = Tensor([lpips(pred_images[i].unsqueeze(0).float(), gt_images[i].unsqueeze(0).float()).item() for i in range(pred_images.shape[0])])
+        # Print mean values in a nice format
+        for metric, metric_name in zip([psnr_values, ssim_values, lpips_values], ["PSNR", "SSIM", "LPIPS"]):
+            print(f"{metric_name}: {metric.mean().item():.4f}")
 
-        return psnr_values, ssim_values, lpips_values
+        # Save metrics vectors in a file 
+        metrics_dict = {"PSNR": psnr_values.tolist(), "SSIM": ssim_values.tolist(), "LPIPS": lpips_values.tolist()}
+        with open(self.output_dir / "metrics.json", "w") as f:
+            json.dump(metrics_dict, f)
+    
+    def save_rendered(self):
+        '''
+        Save all rendered (predict) images in a folder
+        '''
+        (self.output_dir / self.images_path[0].parent).mkdir(parents=True, exist_ok=True)
+        for i in range(self.pred_images.shape[0]):
+            plt.imsave(self.output_dir / self.images_path[i], self.pred_images[i].permute(1,2,0).numpy())
+        
 
 if __name__ == "__main__":
     # Arguments
-    config_path = Path("../data/bridge_of_sighs/output_temp/every5frames_III/nerf/processed_data/nerfacto/2023-06-22_145009/config.yml")
-    camera_path = Path("../data/bridge_of_sighs/output_temp/every5frames_III/processed_data/transforms.json")
-    gt_images_dir = Path("../data/bridge_of_sighs/output_temp/every5frames_III/processed_data")
+    config_path = Path("/workspace/data/bridge_of_sighs/output/gold_standard/nerf/slick-swan/nerfacto/2023-07-04_141837/config.yml")
+    camera_path = Path("/workspace/data/bridge_of_sighs/data/test/transforms.json")
+    gt_images_dir = Path("/workspace/data/bridge_of_sighs/data/test")
+    output_dir = Path("/workspace/data/bridge_of_sighs/prova")
 
-    evaluator = Evaluator(config_path, camera_path, gt_images_dir)
-    psnr_values, ssim_values, lpips_values = evaluator.compute_metrics()
-    print(psnr_values.mean(), ssim_values.mean(), lpips_values.mean())
+    evaluator = Evaluator(config_path, camera_path, gt_images_dir, output_dir)
+    evaluator.save_rendered()
+    evaluator.compute_metrics()
+
+
+
+# python3 historynerf/evaluation/nerf.py 

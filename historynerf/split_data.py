@@ -65,11 +65,11 @@ class SplitData:
         data_split = self.test_set if split == "test" else self.train_set
 
         # Create the subfolders
-        (self.output_dir / split).mkdir(parents=True, exist_ok=True)
+        (self.output_dir / split / "images").mkdir(parents=True, exist_ok=True)
 
         # Copy the images
         for f in data_split:
-            shutil.copy(self.images_dir / f, self.output_dir / split)
+            shutil.copy(self.images_dir / f, self.output_dir / split / "images" / f)
         
     def create_camera_file(self, split="test"):
         '''
@@ -106,5 +106,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-# python3 historynerf/split_data.py --SplitDataConfig.camera_path /workspace/data/bridge_of_sighs/output/gold_standard/processed_data/transforms.json --SplitDataConfig.n 80 --SplitDataConfig.images_dir /workspace/data/bridge_of_sighs/output/gold_standard/processed_data/images --SplitDataConfig.output_dir /workspace/data/bridge_of_sighs/data
