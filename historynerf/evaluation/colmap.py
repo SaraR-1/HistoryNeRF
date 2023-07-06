@@ -1,6 +1,12 @@
 import numpy as np
 from pathlib import Path
-import pycolmap
+import json
+import warnings
+
+from nerfstudio.utils.io import load_from_json
+
+class NotImplementedWarning(UserWarning):
+    pass
 
 class Pose:
     """Class to handle the computation of pose related measurements"""
@@ -8,15 +14,20 @@ class Pose:
     @staticmethod
     def compute_angular_error(rotation1, rotation2):
         """Computes the angular error between two rotations"""
+        # Relative rotation matrix between two matrices. First undo the rotation of R1 (transpose) and then apply the rotation of R2, giving the rotation from R1 to R2
         r_rel = rotation1.T @ rotation2
+        # Trace of the relative rotation matrix (sum of diagonal elements)
+        # In 3D, the trace of a rotation matrix that rotates a vector by an angle theta around a unit vector is 1 + 2*cos(theta)
         cos_theta = (np.trace(r_rel) - 1) / 2
+        # Compute the angle of rotation
         theta = np.arccos(cos_theta.clip(-1, 1))
+        # Convert the angle of rotation from radians to degrees
         return theta * 180 / np.pi 
 
     @staticmethod
     def report_error(errors, max_distance):
         """Reports the percentage of errors less than a max distance"""
-        percentage = sum([1 for i in errors if i < max_distance]) / len(errors) * 100
+        percentage = sum([1 for i in errors if i <= max_distance]) / len(errors) * 100
         return percentage
 
     @staticmethod
@@ -27,16 +38,13 @@ class Pose:
         scene_scale = np.linalg.norm(gt_translation)
         return l2_norm, scene_scale
 
-class Images:
-    """Class to handle image related operations"""
-
-    @staticmethod
-    def image_name_as_id(images):
-        """Converts image names to ids"""
-        return {i.name:i for i in images.values()}
 
 class Transformation:
-    """Class to handle transformations related operations"""
+    """
+    Class to handle transformations related operations
+    
+    This transformation does not work wheb there is only one camera model - how to handle that?
+    """
 
     @staticmethod
     def estimate_transformation(points1, points2):
@@ -54,54 +62,88 @@ class Transformation:
         transformed_points = points @ rotation_matrix + translation_vector
         return transformed_points
 
-def compare_poses(path1, path2, angular_error_max_dist=15, translation_error_max_dist=0.25):
+def image_name_as_id(camera_json):
+    """Converts image names to ids"""
+    return {f["file_path"]: np.array(f["transform_matrix"][:-1]) for f in camera_json["frames"]}
+
+def cameras_from_json(path):
+    cameras_json = load_from_json(path)
+    camera_pp = np.array([cameras_json["cx"], cameras_json["cy"]])
+    cameras = image_name_as_id(cameras_json)
+
+    return camera_pp, cameras
+
+def compare_poses(
+    camera_path1, 
+    camera_path2, 
+    angular_error_max_dist=15, 
+    translation_error_max_dist=0.25,
+    output_dir=""
+    ):
+
     """Compares poses from two different reconstructions"""
-    path1, path2 = Path(path1), Path(path2)
-    if not path1.is_dir() or not path2.is_dir():
-        print("One or both paths do not exist")
-        return None, None
+    camera1_pp, cameras1 = cameras_from_json(camera_path1)
+    camera2_pp, cameras2 = cameras_from_json(camera_path2)
 
-    rec1, rec2 = pycolmap.Reconstruction(path1), pycolmap.Reconstruction(path2)
-    images1_byname, images2_byname = Images.image_name_as_id(rec1.images), Images.image_name_as_id(rec2.images)
-    images_name_comm = list(set(images1_byname.keys()).intersection(images2_byname.keys()))
+    if (camera1_pp != camera2_pp).any():
+        print(f"{camera1_pp}, {camera2_pp}")
+        warnings.warn("Different camera models not supported yet. Transofrmation estimation not implemented.", NotImplementedWarning)
+        # raise  NotImplementedError("Different camera models not supported yet. Transofrmation estimation not implemented.")
+        # if len(cameras1) < len(cameras2):
+        #     rotation, translation = Transformation.estimate_transformation(camera1_pp, camera2_pp)
+        #     images1_byname = Transformation.apply_transformation(rotation, translation, images1_byname)
+        # else:
+        #     rotation, translation = Transformation.estimate_transformation(camera2_pp, camera1_pp)
+        #     images2_byname = Transformation.apply_transformation(rotation, translation, images2_byname)
 
-    camera1_pp = [cameras1[images1_byname[i].camera_id].pp for i in images_name_comm]
-    camera2_pp = [cameras2[images2_byname[i].camera_id].pp for i in images_name_comm]
+    common_cameras = list(set(cameras1.keys()).intersection(cameras2.keys()))
+    print(f"Number of common cameras: {len(common_cameras)}")
 
-    if camera1_pp != camera2_pp:
-        if len(cameras1) < len(cameras2):
-            rotation, translation = Transformation.estimate_transformation(camera1_pp, camera2_pp)
-            images1_byname = Transformation.apply_transformation(rotation, translation, images1_byname)
-        else:
-            rotation, translation = Transformation.estimate_transformation(camera2_pp, camera1_pp)
-            images2_byname = Transformation.apply_transformation(rotation, translation, images2_byname)
+    angular_errors, translation_errors, scenes_scale, translation_errors_rescale = [], [], [], []
+    for camera in common_cameras:
+        rotation1, translation1 = cameras1[camera][:3, :3], cameras1[camera][:3, 3]
+        rotation2, translation2 = cameras2[camera][:3, :3], cameras2[camera][:3, 3]
 
-    angular_errors, l2_translations, scene_scale, l2_translations_rescale = [], [], [], []
-    for i in images_name_comm:
-        angular_errors.append(Pose.compute_angular_error(images1_byname[i].rotmat(), images2_byname[i].rotmat()))
-        l2_translations_i, scene_scale_i = Pose.compute_l2_translation(images1_byname[i].tvec, images2_byname[i].tvec)
-        l2_translations.append(l2_translations_i)
-        scene_scale.append(scene_scale_i)
-        l2_translations_rescale.append(l2_translations_i / scene_scale_i)
+        angular_error = Pose.compute_angular_error(rotation1, rotation2)
+        translation_error, scene_scale = Pose.compute_l2_translation(translation1, translation2)
 
-    aggregate_angular_error = Pose.report_error(angular_errors, angular_error_max_dist)
-    aggregate_l2_translation = Pose.report_error(l2_translations, translation_error_max_dist)
+        angular_errors.append(angular_error)
+        translation_errors.append(translation_error)
+        translation_errors_rescale.append(translation_error / scene_scale)
 
     aggregate_angular_error_dict = {
-        "percentage_max_dist": aggregate_angular_error, 
         "mean": np.mean(angular_errors),
         "median": np.median(angular_errors),
         "std": np.std(angular_errors),
     }
 
     aggregate_translation_error_dict = {
-        "percentage_max_dist": aggregate_l2_translation, 
-        "mean": np.mean(l2_translations),
-        "median": np.median(l2_translations),
-        "std": np.std(l2_translations),
-        "mean_rescale": np.mean(l2_translations_rescale),
-        "median_rescale": np.median(l2_translations_rescale),
-        "std_rescale": np.std(l2_translations_rescale),
+        "mean": np.mean(translation_errors),
+        "median": np.median(translation_errors),
+        "std": np.std(translation_errors),
+        "mean_rescale": np.mean(translation_errors_rescale),
+        "median_rescale": np.median(translation_errors_rescale),
+        "std_rescale": np.std(translation_errors_rescale),
     }
 
-    return aggregate_angular_error_dict, aggregate_translation_error_dict
+    # Save metrics vectors in a file 
+    metrics_dict = {"Angular Error": aggregate_angular_error_dict, "Translation Error": aggregate_translation_error_dict}
+    with open(output_dir / "colmap_metrics.json", "w") as f:
+        json.dump(metrics_dict, f)
+
+
+if __name__ == "__main__":
+    # Arguments
+    camera_path1 = Path("/workspace/data/bridge_of_sighs/data/train/transforms.json")
+    camera_path2 = Path("/workspace/data/bridge_of_sighs/data/train/processed_data/transforms.json")
+    output_dir = Path("/workspace/data/bridge_of_sighs")
+
+    compare_poses(
+        camera_path1=camera_path1, 
+        camera_path2=camera_path2, 
+        angular_error_max_dist=15, 
+        translation_error_max_dist=0.25, 
+        output_dir=output_dir)
+    
+
+# python3 historynerf/evaluation/nerf.py 

@@ -136,7 +136,7 @@ class Evaluator:
 
         # Save metrics vectors in a file 
         metrics_dict = {"PSNR": psnr_values.tolist(), "SSIM": ssim_values.tolist(), "LPIPS": lpips_values.tolist()}
-        with open(self.output_dir / "metrics.json", "w") as f:
+        with open(self.output_dir / "nerf_metrics.json", "w") as f:
             json.dump(metrics_dict, f)
     
     def save_rendered(self):
