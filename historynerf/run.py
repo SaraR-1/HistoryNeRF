@@ -31,7 +31,8 @@ def main(cfg: Config) -> None:
     data_obj.save_images()
 
     nerf_obj = NSWrapper(
-        input_dir=data_obj.config.output_dir,
+        input_dir=data_obj.config.input_dir if data_obj.skip_save else None,
+        output_dir=data_obj.config.output_dir,
         pose_estimation_config=cfg.pose_estimation, 
         nerf_config=cfg.nerf,
         wandb_project=cfg.wandb_project,

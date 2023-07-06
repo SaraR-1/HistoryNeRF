@@ -39,13 +39,15 @@ def dict_to_arg_string(dictionary, prefix=''):
 class NSWrapper:
     def __init__(
             self,
-            input_dir: str,
             pose_estimation_config: PoseEstimationConfig,
             nerf_config: NeRFConfig, 
             wandb_project: str,
-            experiment_name: str,):
+            experiment_name: str,
+            output_dir: str,
+            input_dir: str=None):
         
-        self.input_dir = input_dir
+        self.input_dir = input_dir if input_dir is None else input_dir
+        self.output_dir = output_dir
         self.pose_estimation_config = pose_estimation_config
         self.nerf_config = nerf_config
         self.wandb_project = wandb_project
@@ -57,10 +59,10 @@ class NSWrapper:
         '''
         Create output directories within the specified input directory.
         '''
-        output_dir_processed_data = Path(self.input_dir).parents[0] / "processed_data"
+        output_dir_processed_data = Path(self.output_dir).parents[0] / "processed_data"
         output_dir_processed_data.mkdir(exist_ok=True)
 
-        output_dir_nerf = Path(self.input_dir).parents[0] / "nerf"
+        output_dir_nerf = Path(self.output_dir).parents[0] / "nerf"
         output_dir_nerf.mkdir(exist_ok=True)
 
         self.output_dir_processed_data = output_dir_processed_data

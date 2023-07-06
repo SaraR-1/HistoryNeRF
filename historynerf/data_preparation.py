@@ -14,6 +14,8 @@ class DataPreparation:
 
     ):
         self.config = config
+        # Skip saving the images if no data preparation (sampling, resizing, frames from video) has been done
+        self.skip_save = False       
         self.initialize()
     
     def initialize(self):
@@ -100,11 +102,10 @@ class DataPreparation:
         '''
         # Check if the input directory is a folder of images or a video
         video_flag = False    
-        # Skip saving the images if no data preparation (sampling, resizing, frames from video) has been done
-        skip_save = False       
+
         if Path(self.config.input_dir).is_dir():
             undersample_list = self.undersample()
-            skip_save = self.config.sampling.sample_size is None
+            self.skip_save = self.config.sampling.sample_size is None
         else:
             frames_folder = True
             video_flag = True  
@@ -112,7 +113,7 @@ class DataPreparation:
             undersample_list = self.undersample_video(frames_folder=frames_folder)
         self.write_undersample_list(undersample_list)
 
-        if not skip_save:
+        if not self.skip_save:
             for image in undersample_list:
                 image_path = Path(self.config.input_dir) / image
                 if self.config.resize:
