@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from PIL import Image
 import cv2
@@ -8,6 +9,9 @@ from torch import Tensor
 from torchmetrics import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 import json
+import seaborn as sns
+import matplotlib.pyplot as plt
+import wandb
 
 from nerfstudio.cameras import camera_utils
 from nerfstudio.cameras.cameras import Cameras, CAMERA_MODEL_TO_TYPE, CameraType
@@ -63,10 +67,11 @@ class DataManager:
         return image
 
 
-class Evaluator:
+class NerfEvaluator:
     def __init__(self, config_path: str, camera_path: str, gt_images_dir: str=None, output_dir: str=None):
         self.data_manager = DataManager(config_path, camera_path, gt_images_dir)
 
+        self.config_path = config_path
         self.output_dir = output_dir
         self.images_path, self.pred_images, self.gt_images = self.get_data()
         
@@ -136,28 +141,41 @@ class Evaluator:
 
         # Save metrics vectors in a file 
         metrics_dict = {"PSNR": psnr_values.tolist(), "SSIM": ssim_values.tolist(), "LPIPS": lpips_values.tolist()}
-        with open(self.output_dir / "nerf_metrics.json", "w") as f:
-            json.dump(metrics_dict, f)
-    
-    def save_rendered(self):
+        # Log metrics to wandb
+        wandb.log(metrics_dict)
+        
+    def save_rendered_images(self):
         '''
         Save all rendered (predict) images in a folder
         '''
         (self.output_dir / self.images_path[0].parent).mkdir(parents=True, exist_ok=True)
         for i in range(self.pred_images.shape[0]):
             plt.imsave(self.output_dir / self.images_path[i], self.pred_images[i].permute(1,2,0).numpy())
+
+    def save_rendered_video(self):
+        '''
+        Save rendered video - based on the training set
+        '''
+        output_dir_video = self.output_dir / "output.mp4"
+        command = f"ns-render interpolate --load-config {self.config_path} --output-path {output_dir_video} --pose-source train"
+
+        os.system(command)
+
+    def save_rendered(self):
+        self.save_rendered_images()
+        self.save_rendered_video()
         
 
-if __name__ == "__main__":
-    # Arguments
-    config_path = Path("/workspace/data/bridge_of_sighs/output/gold_standard/nerf/slick-swan/nerfacto/2023-07-04_141837/config.yml")
-    camera_path = Path("/workspace/data/bridge_of_sighs/data/test/transforms.json")
-    gt_images_dir = Path("/workspace/data/bridge_of_sighs/data/test")
-    output_dir = Path("/workspace/data/bridge_of_sighs/prova")
+# if __name__ == "__main__":
+#     # Arguments
+#     config_path = Path("/workspace/data/bridge_of_sighs/output/gold_standard/nerf/slick-swan/nerfacto/2023-07-04_141837/config.yml")
+#     camera_path = Path("/workspace/data/bridge_of_sighs/data/test/transforms.json")
+#     gt_images_dir = Path("/workspace/data/bridge_of_sighs/data/test")
+#     output_dir = Path("/workspace/data/bridge_of_sighs/prova")
 
-    evaluator = Evaluator(config_path, camera_path, gt_images_dir, output_dir)
-    evaluator.save_rendered()
-    evaluator.compute_metrics()
+#     evaluator = NerfEvaluator(config_path, camera_path, gt_images_dir, output_dir)
+#     evaluator.save_rendered()
+#     evaluator.compute_metrics()
 
 
 

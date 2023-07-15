@@ -8,6 +8,7 @@ import wandb
 from historynerf.config import Config, DataPreparationConfig, PoseEstimationConfig, NeRFConfig, EvaluationConfig, SamplingConfig
 from historynerf.data_preparation import DataPreparation
 from historynerf.nerfstudio_wrapper import NSWrapper
+from historynerf.evaluation import NerfEvaluator, evaluate_compare_poses
 
 root_dir = Path(__file__).parents[1]
 
@@ -17,7 +18,8 @@ cs.store(group="data_preparation", name="base_data", node=DataPreparationConfig)
 cs.store(group="data_preparation/sampling", name="base_sampling", node=SamplingConfig)
 cs.store(group="pose_estimation", name="base_pose_estimation", node=PoseEstimationConfig)
 cs.store(group="nerf", name="base_nerf", node=NeRFConfig)
-# cs.store(group="evaluation_config", name="base_evaluation", node=EvaluationConfig)
+cs.store(group="evaluation", name="base_evaluation", node=EvaluationConfig)
+
 
 @hydra.main(config_path=str(root_dir / "configs"), config_name="parent", version_base="1.1")
 def main(cfg: Config) -> None:
@@ -43,20 +45,48 @@ def main(cfg: Config) -> None:
     api = wandb.Api()
     # breakpoint()
     experiment_id = api.runs(f"{cfg_obj.wandb_entity}/{cfg_obj.wandb_project}", filters={"config.experiment_name": experiment_name})[0].id
-
     print("Resume W&B.")
     # Add a flag to disable wandb from the config file
     if cfg_obj.wandb_log:
         wandb.init(
             project=cfg_obj.wandb_project,
             id=experiment_id,
-            resume=True,)
+            resume=True,
+            config=OmegaConf.to_container(cfg, resolve=True, enum_to_str=True,),)
     else:
         wandb.init(project=cfg_obj.wandb_project, mode="disabled")
-    wandb.log({"prova": 5})
-    wandb.config.update(cfg)
+
+    # Log number of images used for training, read number of images in input_dir in cfg_obj
+    wandb.log({"Training Sample Size": len(list(Path(nerf_obj.input_dir).glob("*.jpg")))})
+
+    # Evaluate and log results
+    output_camera_path = Path(nerf_obj.output_dir).parent / "processed_data" / "transforms.json"
+
+    output_path_nerf = Path(nerf_obj.output_dir).parent / "nerf" / experiment_name / cfg_obj.nerf.method_name / "default"
+    output_config_path = output_path_nerf / "config.yml"
+    evaluation_output_dir = output_path_nerf / "evaluation"
+    evaluation_output_dir.mkdir(exist_ok=True)
+
+    # Log output_path_nerf and output_config_path in the wandb config
+    wandb.config.update({"output_path_nerf": str(output_path_nerf), "output_config_path": str(output_config_path)})
+
+    nerfevaluator = NerfEvaluator(
+        config_path=output_config_path, 
+        camera_path=Path(cfg_obj.evaluation.camera_pose_path_nerf), 
+        gt_images_dir=cfg_obj.evaluation.gt_images_dir, 
+        output_dir=evaluation_output_dir,
+        )
+    nerfevaluator.save_rendered()
+    nerfevaluator.compute_metrics()
+
+    evaluate_compare_poses(
+        camera_path1=Path(cfg_obj.evaluation.camera_pose_path_colmap), 
+        camera_path2=output_camera_path, 
+        angular_error_max_dist=15, 
+        translation_error_max_dist=0.25, 
+        output_dir=evaluation_output_dir)
+
     wandb.finish()
 
 if __name__ == "__main__":
     main()
-

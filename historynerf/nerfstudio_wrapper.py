@@ -90,7 +90,7 @@ class NSWrapper:
 
     def train(self):
         # Use --vis {wandb, tensorboard, viewer+wandb, viewer+tensorboard} to run with eval.
-        base_command = f"ns-train {self.nerf_config.method_name} --data {self.output_dir_processed_data} --output-dir {self.output_dir_nerf}"
+        base_command = f"ns-train {self.nerf_config.method_name} --data {self.output_dir_processed_data} --output-dir {self.output_dir_nerf} --timestamp 'default'"
         nerf_config = {k:v for k, v in self.nerf_config.items() if k not in ["method_name", "dataparser_name", "train_split_fraction"]}
         arg_string = dict_to_arg_string(nerf_config)
         command = f"{base_command} {arg_string}"

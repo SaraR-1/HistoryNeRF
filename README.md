@@ -46,6 +46,12 @@ python3 historynerf/run.py wandb_project=bridge_of_sighs data_preparation.input_
 ```
 python3 historynerf/run.py wandb_project=bridge_of_sighs data_preparation.input_dir=/workspace/data/bridge_of_sighs/data/train/images data_preparation.output_dir=/workspace/data/bridge_of_sighs/output/alltrain data_preparation.overwrite_output=False
 pose_estimation.matching_method=sequential nerf.train_split_fraction=1. nerf.pipeline.model.use_gradient_scaling=False
+
+python3 historynerf/run.py wandb_project=bridge_of_sighs data_preparation.input_dir=/workspace/data/bridge_of_sighs/data/train/images data_preparation.output_dir=/workspace/data/bridge_of_sighs/output/every10frames data_preparation.overwrite_output=False data_preparation.sampling.video_sample_step=10 pose_estimation.matching_method=sequential nerf.train_split_fraction=1. nerf.pipeline.model.use_gradient_scaling=False 
+
+python3 historynerf/run.py wandb_project=bridge_of_sighs data_preparation.input_dir=/workspace/data/bridge_of_sighs/data/train/images data_preparation.output_dir=/workspace/data/bridge_of_sighs/output/every10frames data_preparation.overwrite_output=False data_preparation.sampling.sequential_sample_step=10 pose_estimation.matching_method=sequential nerf.vis=wandb
+
+python3 historynerf/run.py wandb_project=bridge_of_sighs data_preparation.input_dir=/workspace/data/bridge_of_sighs/output/every10frames/images data_preparation.output_dir=/workspace/data/bridge_of_sighs/output/every10frames data_preparation.overwrite_output=True pose_estimation.skip_colmap_flag=True pose_estimation.colmap_model_path=/workspace/data/bridge_of_sighs/output/every10frames/processed_data/colmap/sparse/0 nerf.vis=wandb
 ```
 
 2. Split Into Train and Test

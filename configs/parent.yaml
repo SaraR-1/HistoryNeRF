@@ -3,13 +3,9 @@ defaults:
   - data_preparation: data_preparation
   - pose_estimation: pose_estimation
   - nerf: nerf
-  # - evaluation:
+  - evaluation: evaluation
   - _self_
 
 wandb_entity: "sara"
 wandb_project: "nerfstudio_test"
 wandb_log: True
-
-evaluation:
-  camera_pose_path: 
-  gt_images_dir:

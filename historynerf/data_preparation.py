@@ -65,10 +65,12 @@ class DataPreparation:
             if self.config.sampling.rnd_seed:
                 random.Random(self.config.sampling.rnd_seed).shuffle(image_list)
             undersample_list = image_list[:self.config.sampling.sample_size]
-
+            return undersample_list
+        elif self.config.sampling.sequential_sample_step:
+            undersample_list = image_list[::self.config.sampling.sequential_sample_step]
             return undersample_list
         return image_list
-    
+
     def undersample_video(self, frames_folder=True):
         '''
         Undersample the sequential frames of a video. Take a frame every step_size frames. 
@@ -80,8 +82,8 @@ class DataPreparation:
         file_names = [Path(i.name) for i in Path(self.config.input_dir).iterdir()]
         sorted_files = sorted(file_names, key=lambda x: int(x.stem))
 
-        if self.config.sampling.video_sample_step:
-            undersample_list = sorted_files[::self.config.sampling.video_sample_step]
+        if self.config.sampling.sequential_sample_step:
+            undersample_list = sorted_files[::self.config.sampling.sequential_sample_step]
             return undersample_list
         return sorted_files
 

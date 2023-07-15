@@ -2,6 +2,7 @@ import numpy as np
 from pathlib import Path
 import json
 import warnings
+import wandb
 
 from nerfstudio.utils.io import load_from_json
 
@@ -73,7 +74,7 @@ def cameras_from_json(path):
 
     return camera_pp, cameras
 
-def compare_poses(
+def evaluate_compare_poses(
     camera_path1, 
     camera_path2, 
     angular_error_max_dist=15, 
@@ -84,6 +85,8 @@ def compare_poses(
     """Compares poses from two different reconstructions"""
     camera1_pp, cameras1 = cameras_from_json(camera_path1)
     camera2_pp, cameras2 = cameras_from_json(camera_path2)
+
+    wandb.log({"CenterPoint_camera1": camera1_pp, "CenterPoint_camera2": camera2_pp})
 
     if (camera1_pp != camera2_pp).any():
         print(f"{camera1_pp}, {camera2_pp}")
@@ -110,6 +113,8 @@ def compare_poses(
         angular_errors.append(angular_error)
         translation_errors.append(translation_error)
         translation_errors_rescale.append(translation_error / scene_scale)
+    
+    wandb.log({"Angular Errors": angular_errors, "Translation Errors": translation_errors, "Translation Errors Rescale": translation_errors_rescale})
 
     aggregate_angular_error_dict = {
         "mean": np.mean(angular_errors),
@@ -128,8 +133,9 @@ def compare_poses(
 
     # Save metrics vectors in a file 
     metrics_dict = {"Angular Error": aggregate_angular_error_dict, "Translation Error": aggregate_translation_error_dict}
-    with open(output_dir / "colmap_metrics.json", "w") as f:
-        json.dump(metrics_dict, f)
+    wandb.log(metrics_dict)
+    # with open(output_dir / "colmap_metrics.json", "w") as f:
+    #     json.dump(metrics_dict, f)
 
 
 if __name__ == "__main__":
@@ -138,7 +144,7 @@ if __name__ == "__main__":
     camera_path2 = Path("/workspace/data/bridge_of_sighs/data/train/processed_data/transforms.json")
     output_dir = Path("/workspace/data/bridge_of_sighs")
 
-    compare_poses(
+    evaluate_compare_poses(
         camera_path1=camera_path1, 
         camera_path2=camera_path2, 
         angular_error_max_dist=15, 

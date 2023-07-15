@@ -7,7 +7,8 @@ class SamplingConfig:
     rnd_seed: Optional[int] = None
     sample_size: Optional[int] = None
     image_list: Optional[List[str]] = None
-    video_sample_step: Optional[int] = None
+    # video_sample_step: Optional[int] = None
+    sequential_sample_step: Optional[int] = None
 
 @dataclass
 class NoiseConfig:
@@ -100,9 +101,9 @@ class NeRFConfig:
 
 @dataclass
 class EvaluationConfig:
-    camera_pose_path: Optional[str] = MISSING
-    # config_path: Optional[str] = MISSING # No need, saving it after nerf training - so already know the path
-    gt_images_dir: Optional[str] = MISSING
+    camera_pose_path_colmap: Optional[str] = MISSING # Gold Standard camera poses file of the train set, transforms.json
+    camera_pose_path_nerf: Optional[str] = MISSING # Gold Standard camera poses file of the test set, transforms.json
+    gt_images_dir: Optional[str] = MISSING # test folder
 
 @dataclass
 class Config:
