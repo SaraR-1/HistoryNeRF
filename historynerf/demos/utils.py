@@ -70,7 +70,7 @@ def select_experiment(df: pd.DataFrame, exp_number: str) -> pd.DataFrame:
     Create selection options for the experiment and return selected experiment
     """
     st.subheader(f"Experiment {exp_number}")
-    training_sample_size = st.selectbox(f"Select the training sample size for Experiment {exp_number}", df["Training Sample Size"].unique(), index=3, key=f"training_sample_size{exp_number}")
+    training_sample_size = st.selectbox(f"Select the training sample size for Experiment {exp_number}", sorted(df["Training Sample Size"].unique()), index=3, key=f"training_sample_size{exp_number}")
     # Convert the selected string "True"/"False" to boolean True/False
     use_gradient_scaling = st.selectbox(f"Select whether gradient scaling was used for Experiment {exp_number}", ["True", "False"], index=0, key=f"use_gradient_scaling{exp_number}")
     use_gradient_scaling = True if use_gradient_scaling == "True" else False
