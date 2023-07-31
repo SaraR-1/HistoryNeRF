@@ -104,10 +104,9 @@ class DataPreparation:
         '''
         # Check if the input directory is a folder of images or a video
         video_flag = False    
-
         if Path(self.config.input_dir).is_dir():
             undersample_list = self.undersample()
-            self.skip_save = self.config.sampling.sample_size is None
+            self.skip_save = self.config.sampling.sample_size is None and self.config.sampling.sequential_sample_step is None
         else:
             frames_folder = True
             video_flag = True  

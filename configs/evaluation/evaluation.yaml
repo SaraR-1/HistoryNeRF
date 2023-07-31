@@ -1,0 +1,6 @@
+defaults:
+  - base_evaluation
+
+camera_pose_path_colmap: "/workspace/data/bridge_of_sighs/data/train/transforms.json"
+camera_pose_path_nerf: "/workspace/data/bridge_of_sighs/data/test/transforms.json"
+gt_images_dir: "/workspace/data/bridge_of_sighs/data/test"

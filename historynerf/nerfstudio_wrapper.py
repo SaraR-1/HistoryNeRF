@@ -46,7 +46,7 @@ class NSWrapper:
             output_dir: str,
             input_dir: str=None):
         
-        self.input_dir = input_dir if input_dir is None else input_dir
+        self.input_dir = output_dir if input_dir is None else input_dir
         self.output_dir = output_dir
         self.pose_estimation_config = pose_estimation_config
         self.nerf_config = nerf_config

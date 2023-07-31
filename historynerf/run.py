@@ -79,12 +79,12 @@ def main(cfg: Config) -> None:
     nerfevaluator.save_rendered()
     nerfevaluator.compute_metrics()
 
-    evaluate_compare_poses(
-        camera_path1=Path(cfg_obj.evaluation.camera_pose_path_colmap), 
-        camera_path2=output_camera_path, 
-        angular_error_max_dist=15, 
-        translation_error_max_dist=0.25, 
-        output_dir=evaluation_output_dir)
+    # evaluate_compare_poses(
+    #     camera_path1=Path(cfg_obj.evaluation.camera_pose_path_colmap), 
+    #     camera_path2=output_camera_path, 
+    #     angular_error_max_dist=15, 
+    #     translation_error_max_dist=0.25, 
+    #     output_dir=evaluation_output_dir)
 
     wandb.finish()
 
