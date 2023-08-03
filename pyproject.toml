@@ -19,6 +19,7 @@ streamlit-bokeh-events = "^0.1.2"
 opencv-python = "4.6.0.66"
 coolname = "^2.2.0"
 seaborn = "^0.12.2"
+torchtyping = "^0.1.4"
 
 
 [build-system]

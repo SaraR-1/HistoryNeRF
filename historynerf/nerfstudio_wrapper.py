@@ -100,8 +100,8 @@ class NSWrapper:
             command += f" --experiment-name {self.experiment_name}"
 
         command += f" {self.nerf_config.dataparser_name} --train-split-fraction {self.nerf_config.train_split_fraction}"
+        print(command)
         os.system(command)
-
 
         # 'ns-train nerfacto nerfstudio-data --train-split-fraction 1.0 --data /workspace/data/bridge_of_sighs/output/gold_standard/processed_data --output-dir /workspace/data/bridge_of_sighs/output/gold_standard/nerf --vis viewer+wandb --pipeline.model.use-gradient-scaling False --machine.num-gpus 1 '
 
