@@ -7,6 +7,7 @@ import wandb
 
 from historynerf.config import Config, DataPreparationConfig, PoseEstimationConfig, NeRFConfig, EvaluationConfig, SamplingConfig
 from historynerf.data_preparation import DataPreparation
+from historynerf.colmap_load import ColmapLoader
 from historynerf.nerfstudio_wrapper import NSWrapper
 from historynerf.evaluation import NerfEvaluator, evaluate_compare_poses
 
@@ -31,6 +32,12 @@ def main(cfg: Config) -> None:
     # Simple example to run data_preparation, here only with undersampling
     data_obj = DataPreparation(cfg.data_preparation)
     data_obj.save_images()
+
+    ColmapLoader(
+        recon_dir=Path(cfg.pose_estimation.colmap_model_path), 
+        output_dir=Path(""), 
+        imgs_dir=Path(data_obj.config.input_dir))
+
 
     nerf_obj = NSWrapper(
         input_dir=data_obj.config.input_dir if data_obj.skip_save else None,
