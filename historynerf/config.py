@@ -7,7 +7,6 @@ class SamplingConfig:
     rnd_seed: Optional[int] = None
     sample_size: Optional[int] = None
     image_list: Optional[List[str]] = None
-    # video_sample_step: Optional[int] = None
     sequential_sample_step: Optional[int] = None
 
 @dataclass
@@ -25,7 +24,6 @@ class DataPreparationConfig:
     input_dir: str
     output_dir: str
     overwrite_output: bool = False
-    # resize: bool = False
     resize: Optional[List[int]] = None
     sampling: SamplingConfig = MISSING
     # noise: NoiseConfig = MISSING
@@ -45,23 +43,17 @@ class PoseEstimationConfig:
     use_sfm_depth_flag: Optional[bool] = MISSING # If True, export and use depth maps induced from SfM points. (default: False)
     include_depth_debug_flag: Optional[bool] = MISSING # If --use-sfm-depth and this flag is True, also export debug images showing Sf overlaid upon input images. (default: False) 
 
-
-# @dataclass
-# class NeRFDataParserConfig:
-#     train_split_fraction: Optional[float] = MISSING # default 0.9
-#     scale_factor: Optional[float] = MISSING # How much to scale the camera origins by. (default: 1.0)                                                          │
-#     downscale_factor: Optional[int] = MISSING # How much to downscale images. If not set, images are chosen such that the max dimension is <1600px. (default: None)                                                                                                            │
-# │ --scene-scale FLOAT     How much to scale the region of interest by. (default: 1.0)                                                      │
-# │ --orientation-method # {pca,up,vertical,none} The method to use for orientation. (default: up)                                                                 │
-# │ --center-method  # {poses,focus,none} The method to use to center the poses. (default: poses)                                                          │
-# │ --auto-scale-poses: opt  # {True,False}Whether to automatically scale the poses to fit in +/- 1 bounding box. (default: True)                           │
-
+@dataclass
+class NeRFCameraOptimizerConfig:
+    mode: Optional[str] = MISSING # {off,SO3xR3,SE3} Pose optimization strategy to use. If enabled, we recommend SO3xR3.
+                         
 @dataclass
 class NeRFDataManagerConfig:
     train_num_rays_per_batch: Optional[int] = MISSING # Number of rays per batch to use per training iteration. (default: 4096)
     train_num_images_to_sample_from: Optional[int] = MISSING # Number of images to sample during training iteration. (default: -1, i.e. all images)
     eval_num_rays_per_batch: Optional[int] = MISSING # Number of rays per batch to use per eval iteration. (default: 4096)
     eval_num_images_to_sample_from: Optional[int] = MISSING # Number of images to sample during eval iteration. (default: -1, i.e. all images)
+    camera_optimizer: NeRFCameraOptimizerConfig = MISSING
 
 @dataclass
 class NeRFModelConfig:
@@ -88,9 +80,10 @@ class NeRFConfig:
     steps_per_eval_all_images: Optional[int] = MISSING # Number of steps between all eval images. (default: 25000)
     max_num_iterations: Optional[int] = MISSING # Maximum number of iterations. (default: 30000)
 
+    disable_scene_scale: Optional[bool] = MISSING
+
     pipeline: NeRFPipelineConfig = MISSING
     machine: MachineConfig = MISSING
-    # dataparser: NeRFDataParserConfig = MISSING
 
     def __post_init__(self) -> None:
         allowed_methods = ("depth-nerfacto" ,"dnerf", "instant-ngp", "instant-ngp-bounded", "mipnerf", "nerfacto", "nerfacto-big", 
@@ -101,9 +94,11 @@ class NeRFConfig:
 
 @dataclass
 class EvaluationConfig:
-    camera_pose_path_colmap: Optional[str] = MISSING # Gold Standard camera poses file of the train set, transforms.json
-    camera_pose_path_nerf: Optional[str] = MISSING # Gold Standard camera poses file of the test set, transforms.json
+    camera_pose_path_train: Optional[str] = MISSING # Gold Standard camera poses file of the train set, transforms.json
+    camera_pose_path_test: Optional[str] = MISSING # Gold Standard camera poses file of the test set, transforms.json
     gt_images_dir: Optional[str] = MISSING # test folder
+    config_path: Optional[str] = MISSING # only used when running run_evaluation, already provided when running the entire pipeline
+    output_dir: Optional[str] = MISSING # only used when running run_evaluation, already provided when running the entire pipeline
 
 @dataclass
 class Config:

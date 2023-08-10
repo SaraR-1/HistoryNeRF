@@ -22,40 +22,33 @@ from nerfstudio.utils.eval_utils import eval_setup
 from nerfstudio.utils.io import load_from_json
 from nerfstudio.exporter.exporter_utils import render_trajectory
 
+def extract_cameras(camera_path):
+    cameras_json = load_from_json(camera_path)
+    camera_type = CAMERA_MODEL_TO_TYPE[cameras_json["camera_model"]]
+    frames = cameras_json["frames"]
+
+    return cameras_json, camera_type, frames
+
+
 
 class DataManager:
-    def __init__(self, config_path: str, camera_path: str, gt_images_dir: str=None):
+    def __init__(self, config_path: Path, camera_path_test: Path, gt_images_dir: str=None):
         self.config, self.pipeline, _, self.step = eval_setup(config_path=config_path, eval_num_rays_per_chunk=None, test_mode="test")
         
         if not gt_images_dir:
             gt_images_dir = self.config.data
 
-        self.camera_path = camera_path
         self.gt_images_dir = gt_images_dir
-        self.cameras_json = load_from_json(camera_path)
-        self.camera_type = CAMERA_MODEL_TO_TYPE[self.cameras_json["camera_model"]]
-        self.frames = self.cameras_json["frames"]    
+
+        self.cameras_json_test, self.camera_type_test, self.frames_test = extract_cameras(camera_path_test)
+        # self.cameras_json_train, self.camera_type_train, self.frames_train = extract_cameras(camera_path_train)
+
         self.dataparser_config = self.pipeline.datamanager.dataparser.config
 
-    def process_poses(self, frames):
-        '''
-        Process poses from COLMAP to NerfStudio format.
-        '''
-        images_path, poses = zip(*[[Path(f["file_path"]), f["transform_matrix"]] for f in frames])
-        poses = torch.from_numpy(np.array(poses).astype(np.float32))
+        dataparser_transforms = load_from_json(Path(config_path).parent / "dataparser_transforms.json")
+        self.transform = torch.tensor(dataparser_transforms["transform"])
+        self.scale = dataparser_transforms["scale"]
 
-        poses, _ = camera_utils.auto_orient_and_center_poses(
-                poses,
-                method=self.dataparser_config.orientation_method,
-                center_method=self.dataparser_config.center_method,
-            )
-        
-        if self.dataparser_config.auto_scale_poses:
-            scale_factor = 1.0 / float(torch.max(torch.abs(poses[:, :3, 3])))
-            scale_factor *= scale_factor
-            poses[:, :3, 3] *= scale_factor
-
-        return list(images_path), poses
 
     def read_image(self, path, downscale_factor):
         image = plt.imread(path)
@@ -66,46 +59,71 @@ class DataManager:
 
         return image
 
+    def process_poses_testscale(self, poses):
+        poses, _ = camera_utils.auto_orient_and_center_poses(
+            poses,
+            method=self.dataparser_config.orientation_method,
+            center_method=self.dataparser_config.center_method,
+        )
+        
+        if self.dataparser_config.auto_scale_poses:
+            scale_factor = 1.0 / float(torch.max(torch.abs(poses[:, :3, 3])))
+            scale_factor *= scale_factor
+            poses[:, :3, 3] *= scale_factor
+
+        return poses
+
+    def process_poses_trainscale(self, poses):
+        self.transform = torch.index_select(self.transform, 1, torch.LongTensor([1,0,2,3]))
+        self.transform[:,2] *= -1
+
+        poses = self.transform @ poses
+        poses[:, :3, 3] *= self.scale**2
+
+        return poses
+
+    def process_poses(self):
+        '''
+        Process poses from COLMAP to NerfStudio format.
+        '''
+        images_path, poses = zip(*[[Path(f["file_path"]), f["transform_matrix"]] for f in self.frames_test])
+        poses = torch.from_numpy(np.array(poses).astype(np.float32))
+
+        poses_testscale = self.process_poses_testscale(poses)
+        poses_trainscale = self.process_poses_trainscale(poses)
+
+        # _ , poses_train = zip(*[[Path(f["file_path"]), f["transform_matrix"]] for f in self.frames_train])
+        # poses_train = torch.from_numpy(np.array(poses_train).astype(np.float32))
+
+        # poses_train, transform_train = camera_utils.auto_orient_and_center_poses(poses_train)
+        # scale_factor_train = 1.0 / float(torch.max(torch.abs(poses_train[:, :3, 3])))
+
+        # poses = transform_train @ poses
+        # poses[:, :3, 3] *= scale_factor_train
+
+
+        return list(images_path), poses_testscale, poses_trainscale
 
 class NerfEvaluator:
-    def __init__(self, config_path: str, camera_path: str, gt_images_dir: str=None, output_dir: str=None):
-        self.data_manager = DataManager(config_path, camera_path, gt_images_dir)
+    def __init__(self, config_path: Path, camera_path_test: Path, gt_images_dir: Path=None, output_dir: Path=None):
+        self.data_manager = DataManager(config_path, camera_path_test, gt_images_dir)
 
         self.config_path = config_path
         self.output_dir = output_dir
-        self.images_path, self.pred_images, self.gt_images = self.get_data()
-        
-    def get_data(self):
-        '''
-        Compute metrics for a given image and ground truth image
-        '''
-        width, height, fx, fy, cx, cy = [self.data_manager.cameras_json[i] for i in ['w', 'h', 'fl_x', 'fl_y', 'cx', 'cy']]
+        self.images_path, self.pred_images_testscale, self.pred_images_trainscale, self.gt_images = self.get_data()
 
-        # List of parameters to fetch
-        params = ['k1', 'k2', 'k3', 'k4', 'p1', 'p2']
-        # Fetch parameters using list comprehension and dictionary get method
-        distortion_params = {param: self.data_manager.cameras_json.get(param, 0.0) for param in params}
-        # Pass distortion_params as a dictionary to the function
-        distortion_params = camera_utils.get_distortion_params(**distortion_params)
-
-        downscale_factor = self.data_manager.dataparser_config.downscale_factor
-        max_dim_flag = max(width, height) > 1600
-        if downscale_factor is None:
-            downscale_factor = 0.5 if max_dim_flag else 1.0
-
-        images_path, processed_poses = self.data_manager.process_poses(self.data_manager.frames)
-        
+    def render_cameras(self, processed_poses):
         cameras = Cameras(
-            width=width, 
-            height=height,
-            fx=fx, fy=fy, 
-            cx=cx, 
-            cy=cy, 
+            width=self.camera_properties["w"], 
+            height=self.camera_properties["h"],
+            fx=self.camera_properties["fl_x"], fy=self.camera_properties["fl_y"], 
+            cx=self.camera_properties["cx"], 
+            cy=self.camera_properties["cy"], 
             camera_to_worlds=processed_poses, 
-            camera_type=self.data_manager.camera_type, 
-            distortion_params=distortion_params)
+            camera_type=self.data_manager.camera_type_test, 
+            distortion_params=self.distortion_params)
 
-        cameras.rescale_output_resolution(downscale_factor)
+        cameras.rescale_output_resolution(self.downscale_factor)
 
         pred_images, _ = render_trajectory(
             pipeline=self.data_manager.pipeline,
@@ -116,14 +134,41 @@ class NerfEvaluator:
             )
 
         pred_images = torch.tensor(np.array(pred_images)).permute(0, 3, 1, 2)
+        return pred_images
+
+        
+    def get_data(self):
+        '''
+        Compute metrics for a given image and ground truth image
+        '''
+        # width, height, fx, fy, cx, cy = [self.data_manager.cameras_json_test[i] for i in ['w', 'h', 'fl_x', 'fl_y', 'cx', 'cy']]
+
+        self.camera_properties = {i: self.data_manager.cameras_json_test[i] for i in ['w', 'h', 'fl_x', 'fl_y', 'cx', 'cy']}
+
+        # List of parameters to fetch
+        params = ['k1', 'k2', 'k3', 'k4', 'p1', 'p2']
+        # Fetch parameters using list comprehension and dictionary get method
+        distortion_params = {param: self.data_manager.cameras_json_test.get(param, 0.0) for param in params}
+        # Pass distortion_params as a dictionary to the function
+        self.distortion_params = camera_utils.get_distortion_params(**distortion_params)
+
+        self.downscale_factor = self.data_manager.dataparser_config.downscale_factor
+        max_dim_flag = max(self.camera_properties["w"], self.camera_properties["h"]) > 1600
+        if self.downscale_factor is None:
+            self.downscale_factor = 0.5 if max_dim_flag else 1.0
+
+        images_path, processed_poses_testscale, processed_poses_trainscale = self.data_manager.process_poses()
+        
+        pred_images_testscale = self.render_cameras(processed_poses_testscale)
+        pred_images_trainscale = self.render_cameras(processed_poses_trainscale)
 
         # Read and process ground truth images
-        gt_images = [self.data_manager.read_image(self.data_manager.gt_images_dir / img_path, downscale_factor) for img_path in images_path]
+        gt_images = [self.data_manager.read_image(self.data_manager.gt_images_dir / img_path, self.downscale_factor) for img_path in images_path]
         gt_images = torch.tensor(np.array(gt_images)).permute(0, 3, 1, 2)
 
-        return images_path, pred_images, gt_images
+        return images_path, pred_images_testscale, pred_images_trainscale, gt_images
 
-    def compute_metrics(self):
+    def compute_metrics_singlescale(self, pred_scale):
         '''
         Compute metrics for a given image and ground truth image
         '''
@@ -131,26 +176,44 @@ class NerfEvaluator:
         ssim = StructuralSimilarityIndexMeasure(data_range=1.0, reduction='none')
         lpips = LearnedPerceptualImagePatchSimilarity(normalize=True)
 
-        psnr_values = psnr(self.pred_images, self.gt_images)
-        ssim_values = ssim(self.pred_images, self.gt_images)
-        lpips_values = Tensor([lpips(self.pred_images[i].unsqueeze(0).float(), self.gt_images[i].unsqueeze(0).float()).item() for i in range(self.pred_images.shape[0])])
+        if pred_scale == 'test':
+            pred_images = self.pred_images_testscale
+        elif pred_scale == 'train':
+            pred_images = self.pred_images_trainscale
+
+        psnr_values = psnr(pred_images, self.gt_images)
+        ssim_values = ssim(pred_images, self.gt_images)
+        lpips_values = Tensor([lpips(pred_images[i].unsqueeze(0).float(), self.gt_images[i].unsqueeze(0).float()).item() for i in range(pred_images.shape[0])])
 
         # Print mean values in a nice format
         for metric, metric_name in zip([psnr_values, ssim_values, lpips_values], ["PSNR", "SSIM", "LPIPS"]):
             print(f"{metric_name}: {metric.mean().item():.4f}")
 
         # Save metrics vectors in a file 
-        metrics_dict = {"PSNR": psnr_values.tolist(), "SSIM": ssim_values.tolist(), "LPIPS": lpips_values.tolist()}
+        metrics_dict = {f"PSNR {pred_scale}_scale": psnr_values.tolist(), f"SSIM {pred_scale}_scale": ssim_values.tolist(), f"LPIPS {pred_scale}_scale": lpips_values.tolist()}
         # Log metrics to wandb
         wandb.log(metrics_dict)
+
+    def compute_metrics(self):
+        self.compute_metrics_singlescale(pred_scale="test")
+        self.compute_metrics_singlescale(pred_scale="train")
         
-    def save_rendered_images(self):
+    def save_rendered_images_singlescale(self, pred_scale):
         '''
         Save all rendered (predict) images in a folder
         '''
-        (self.output_dir / self.images_path[0].parent).mkdir(parents=True, exist_ok=True)
-        for i in range(self.pred_images.shape[0]):
-            plt.imsave(self.output_dir / self.images_path[i], self.pred_images[i].permute(1,2,0).numpy())
+        if pred_scale == 'test':
+            pred_images = self.pred_images_testscale
+        elif pred_scale == 'train':
+            pred_images = self.pred_images_trainscale
+
+        (self.output_dir / f"{pred_scale}_scale" / self.images_path[0].parent).mkdir(parents=True, exist_ok=True)
+        for i in range(pred_images.shape[0]):
+            plt.imsave(self.output_dir / f"{pred_scale}_scale" / self.images_path[i], pred_images[i].permute(1,2,0).numpy())
+    
+    def save_rendered_images(self):
+        self.save_rendered_images_singlescale(pred_scale="test")
+        self.save_rendered_images_singlescale(pred_scale="train")
 
     def save_rendered_video(self):
         '''
@@ -165,18 +228,3 @@ class NerfEvaluator:
         self.save_rendered_images()
         self.save_rendered_video()
         
-
-# if __name__ == "__main__":
-#     # Arguments
-#     config_path = Path("/workspace/data/bridge_of_sighs/output/gold_standard/nerf/slick-swan/nerfacto/2023-07-04_141837/config.yml")
-#     camera_path = Path("/workspace/data/bridge_of_sighs/data/test/transforms.json")
-#     gt_images_dir = Path("/workspace/data/bridge_of_sighs/data/test")
-#     output_dir = Path("/workspace/data/bridge_of_sighs/prova")
-
-#     evaluator = NerfEvaluator(config_path, camera_path, gt_images_dir, output_dir)
-#     evaluator.save_rendered()
-#     evaluator.compute_metrics()
-
-
-
-# python3 historynerf/evaluation/nerf.py 
