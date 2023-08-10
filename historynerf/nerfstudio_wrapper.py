@@ -59,14 +59,19 @@ class NSWrapper:
         '''
         Create output directories within the specified input directory.
         '''
-        output_dir_processed_data = Path(self.output_dir).parents[0] / "processed_data"
-        output_dir_processed_data.mkdir(exist_ok=True)
+        # Create colmap output dir if the flag for skip colmap is false
+        if not self.pose_estimation_config.skip_colmap_flag:
+            output_dir_processed_data = Path(self.output_dir).parents[0] / "processed_data"
+            output_dir_processed_data.mkdir(exist_ok=True)
+        else:
+            output_dir_processed_data = Path(self.pose_estimation_config.colmap_model_path).parents[2]
+            
+        self.output_dir_processed_data = output_dir_processed_data
 
         output_dir_nerf = Path(self.output_dir).parents[0] / "nerf"
         output_dir_nerf.mkdir(exist_ok=True)
-
-        self.output_dir_processed_data = output_dir_processed_data
         self.output_dir_nerf = output_dir_nerf
+
 
     def process_data(self):
         '''
@@ -80,7 +85,6 @@ class NSWrapper:
         ns-train nerfacto --data ../data/bridge_of_sighs/output_temp/every5frames_II/processed_data --viewer.websocket-port 8501
         
         '''
-        #  --verbose
         base_command = f"ns-process-data images --data {self.input_dir} --output-dir {self.output_dir_processed_data}"
 
         arg_string = dict_to_arg_string(self.pose_estimation_config)
@@ -89,9 +93,8 @@ class NSWrapper:
         os.system(command)
 
     def train(self):
-        # Use --vis {wandb, tensorboard, viewer+wandb, viewer+tensorboard} to run with eval.
         base_command = f"ns-train {self.nerf_config.method_name} --data {self.output_dir_processed_data} --output-dir {self.output_dir_nerf} --timestamp 'default'"
-        nerf_config = {k:v for k, v in self.nerf_config.items() if k not in ["method_name", "dataparser_name", "train_split_fraction"]}
+        nerf_config = {k:v for k, v in self.nerf_config.items() if k not in ["method_name", "dataparser_name", "train_split_fraction", "disable_scene_scale"]}
         arg_string = dict_to_arg_string(nerf_config)
         command = f"{base_command} {arg_string}"
 
@@ -100,10 +103,12 @@ class NSWrapper:
             command += f" --experiment-name {self.experiment_name}"
 
         command += f" {self.nerf_config.dataparser_name} --train-split-fraction {self.nerf_config.train_split_fraction}"
+        if self.nerf_config.disable_scene_scale:
+            command += " --orientation-method none --center-method none --auto-scale-poses False"
+        # command += f" " 
         print(command)
         os.system(command)
 
-        # 'ns-train nerfacto nerfstudio-data --train-split-fraction 1.0 --data /workspace/data/bridge_of_sighs/output/gold_standard/processed_data --output-dir /workspace/data/bridge_of_sighs/output/gold_standard/nerf --vis viewer+wandb --pipeline.model.use-gradient-scaling False --machine.num-gpus 1 '
 
 
     def render(self):

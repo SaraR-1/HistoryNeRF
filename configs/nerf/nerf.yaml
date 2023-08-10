@@ -9,7 +9,8 @@ steps_per_save:
 steps_per_eval_batch: 
 steps_per_eval_image: 
 steps_per_eval_all_images: 
-max_num_iterations: 
+max_num_iterations:
+disable_scene_scale: False 
 
 machine:
   num_gpus: 1
@@ -22,6 +23,8 @@ pipeline:
     train_num_images_to_sample_from: 
     eval_num_rays_per_batch: 
     eval_num_images_to_sample_from: 
+    camera_optimizer:
+      mode:
 
 
 

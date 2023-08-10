@@ -33,12 +33,16 @@ def main(cfg: Config) -> None:
     data_obj = DataPreparation(cfg.data_preparation)
     data_obj.save_images()
 
-    ColmapLoader(
-        recon_dir=Path(cfg.pose_estimation.colmap_model_path), 
-        output_dir=Path(""), 
-        imgs_dir=Path(data_obj.config.input_dir))
+    if cfg.pose_estimation.colmap_model_path:
+        colmap_loader = ColmapLoader(
+            recon_dir=Path(cfg.pose_estimation.colmap_model_path), 
+            output_dir=Path(data_obj.config.output_dir).parent / "processed_data_fixedcolmap", 
+            imgs_dir=Path(data_obj.config.input_dir) if data_obj.skip_save else Path(data_obj.config.output_dir))
+        colmap_loader.sample_colmap()
 
-
+        # Update cfg.colmap_model_path and data_obj.config.input_dir
+        cfg.pose_estimation["colmap_model_path"], data_obj.config.input_dir = colmap_loader.update_path(current_colmap=cfg.pose_estimation["colmap_model_path"], current_input=data_obj.config.input_dir)
+            
     nerf_obj = NSWrapper(
         input_dir=data_obj.config.input_dir if data_obj.skip_save else None,
         output_dir=data_obj.config.output_dir,
@@ -79,7 +83,7 @@ def main(cfg: Config) -> None:
 
     nerfevaluator = NerfEvaluator(
         config_path=output_config_path, 
-        camera_path=Path(cfg_obj.evaluation.camera_pose_path_nerf), 
+        camera_path_test=Path(cfg_obj.evaluation.camera_pose_path_test),
         gt_images_dir=cfg_obj.evaluation.gt_images_dir, 
         output_dir=evaluation_output_dir,
         )
@@ -87,7 +91,7 @@ def main(cfg: Config) -> None:
     nerfevaluator.compute_metrics()
 
     # evaluate_compare_poses(
-    #     camera_path1=Path(cfg_obj.evaluation.camera_pose_path_colmap), 
+    #     camera_path1=Path(cfg_obj.evaluation.camera_pose_path_train), 
     #     camera_path2=output_camera_path, 
     #     angular_error_max_dist=15, 
     #     translation_error_max_dist=0.25, 
