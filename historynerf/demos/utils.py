@@ -23,21 +23,42 @@ def load_wandb_data(entity: str, project: str) -> pd.DataFrame:
     data = []
     for run in runs:
         if run.state == "finished":
-            data.append({
-                "name": run.name,
-                "use_gradient_scaling": run.config["nerf"]["pipeline"]["model"]["use_gradient_scaling"], 
-                "max_num_iterations": run.config["nerf"]["max_num_iterations"],
-                "method_name": run.config["nerf"]["method_name"],
-                "output_path_nerf": run.config["output_path_nerf"],
-                "gt_images_dir": run.config["evaluation"]["gt_images_dir"],
-                "Training Sample Size": run.summary["Training Sample Size"], 
-                "output_config_path": run.config["output_config_path"],
-                "SSIM": run.summary["SSIM"],
-                "LPIPS": run.summary["LPIPS"],
-                "PSNR": run.summary["PSNR"],})
+            try:
+                data.append({
+                    "name": run.name,
+                    "use_gradient_scaling": run.config["nerf"]["pipeline"]["model"]["use_gradient_scaling"], 
+                    "max_num_iterations": run.config["nerf"]["max_num_iterations"],
+                    "method_name": run.config["nerf"]["method_name"],
+                    "output_path_nerf": run.config["output_path_nerf"],
+                    "colmap_model_path": run.config["pose_estimation"]["colmap_model_path"] if run.config["pose_estimation"]["colmap_model_path"] is not None else "",
+                    "gt_images_dir": run.config["evaluation"]["gt_images_dir"],
+                    "Training Sample Size": run.summary["Training Sample Size"], 
+                    "output_config_path": run.config["output_config_path"],
+                    "SSIM test_scale": run.summary["SSIM test_scale"],
+                    "LPIPS test_scale": run.summary["LPIPS test_scale"],
+                    "PSNR test_scale": run.summary["PSNR test_scale"],
+                    "SSIM train_scale": run.summary["SSIM train_scale"],
+                    "LPIPS train_scale": run.summary["LPIPS train_scale"],
+                    "PSNR train_scale": run.summary["PSNR train_scale"],})
+            except:
+                st.write(run.name)
             
     df = pd.DataFrame(data)
     return df 
+
+def filter_dataset_colmap(df: pd.DataFrame, colmap: str) -> pd.DataFrame:
+    """
+    Filter the dataframe to select only the experiments with the selected colmap model
+    """
+    fixed_colmap_mask = df["colmap_model_path"].str.contains("processed_data_fixedcolmap/colmap/sparse/0")
+
+    if colmap == "estimated":
+        df = df[~fixed_colmap_mask]
+    elif colmap == "fixed":
+        df = df[fixed_colmap_mask]
+    else:
+        raise ValueError(f"Unsupported colmap model: {colmap}")
+    return df
 
 def load_media(file_path: Union[str, Path], media_type: str) -> Union[bytes, Image.Image]:
     """
@@ -51,7 +72,8 @@ def load_media(file_path: Union[str, Path], media_type: str) -> Union[bytes, Ima
         else:
             raise ValueError(f'Unsupported media type: {media_type}')
 
-def create_plot(df: pd.DataFrame, metric: str):
+def create_plot(df: pd.DataFrame, metric: str, metric_title:str, colmap_filter: str):
+    df = filter_dataset_colmap(df, colmap_filter)
     df_p = df.explode(metric)
     x = df_p["Training Sample Size"].astype(str)
     y = df_p[metric]
@@ -59,7 +81,7 @@ def create_plot(df: pd.DataFrame, metric: str):
 
     fig = px.box(x=x, y=y, color=col, points="outliers",
                  labels={"x": "Training Sample Size", "y": metric, "color": "Gradient Scaling"},
-                 title=f"{metric} vs Training Sample Size")
+                 title=f"{metric_title} vs Training Sample Size")
 
     category_order = np.array(sorted(x.unique().astype(int)), dtype=str)
     fig.update_xaxes(type='category', categoryorder='array', categoryarray = category_order)
@@ -75,7 +97,11 @@ def select_experiment(df: pd.DataFrame, exp_number: str) -> pd.DataFrame:
     use_gradient_scaling = st.selectbox(f"Select whether gradient scaling was used for Experiment {exp_number}", ["True", "False"], index=0, key=f"use_gradient_scaling{exp_number}")
     use_gradient_scaling = True if use_gradient_scaling == "True" else False
 
+    colmap = st.selectbox("Select the colmap model", ["estimated", "fixed"], index=0,key=f"colmap_filter{exp_number}")
+
     df_exp = df[(df["Training Sample Size"] == training_sample_size) & (df["use_gradient_scaling"] == use_gradient_scaling)]
+    df_exp = filter_dataset_colmap(df_exp, colmap)
+
     return df_exp
 
 
