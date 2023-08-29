@@ -113,9 +113,7 @@ class ImageAligner:
         # breakpoint()
         # good_matches = [m for m, n in matches if m.distance < self.match_filter * n.distance]
         
-        good_matches = [m for match in matches if len(match) == 2 for m, n in [match] if m.distance < self.match_filter * n.distance]
-    
-        
+        good_matches = [m for match in matches if len(match) == 2 for m, n in [match] if m.distance < self.match_filter * n.distance]        
         return good_matches
     
     def align_images(self):

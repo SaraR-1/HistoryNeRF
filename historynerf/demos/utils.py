@@ -140,6 +140,28 @@ def select_experiment_name(df: pd.DataFrame, exp_number: str) -> pd.DataFrame:
 
     return df_exp
 
+def select_stats_alignment_images(experiment_path: str, alignment_measure:str = 'normalized_overlap'):
+    experiment_path = Path(experiment_path).parents[3] 
+    df = pd.read_csv(experiment_path / "alignment/alignment_scores.csv")
+    # Filter out non-finite values
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df = df[df[f"{alignment_measure} Score"].apply(lambda x: pd.Series(x).notna().all())]
+    
+    # Compute statistics and find corresponding indices
+    stats = {'max': df[f"{alignment_measure} Score"].idxmax(), 
+             'min': df[f"{alignment_measure} Score"].idxmin(), 
+             'median': (df[f"{alignment_measure} Score"] - df[f"{alignment_measure} Score"].median()).abs().idxmin()}
+    # Map indices to image names in folder A
+    folder_imgs = experiment_path / "images"
+    # Read them in the same way they are when computing the allignment - ideally, change allignment to save the name instead of the list index
+    img_names = [f.stem for f in folder_imgs.iterdir() if f.suffix in ['.jpg', '.jpeg', '.png']]
+    selected_imgs = {k: (img_names[int(df.loc[v, 'Image1 Index'])], img_names[int(df.loc[v, 'Image2 Index'])]) for k, v in stats.items()}
+    # Formulate corresponding alignment image names for folder B
+    folder_align = experiment_path/ "alignment"
+    selected_imgs_align = {k: folder_align / f"alignment_{v1}_to_{v2}.png" for k, (v1, v2) in selected_imgs.items()}
+    selected_imgs_keypoint = {k: folder_align / f"keypoint_matches_{v1}_to_{v2}.png" for k, (v1, v2) in selected_imgs.items()}
+    return selected_imgs_align, selected_imgs_keypoint
+     
 def get_test_list(gt_images_dir: str) -> Tuple[List[Path], int]:
     """
     Get the list of test images from the ground truth images directory.
@@ -173,7 +195,7 @@ def read_alignemnt_metrics_file(df: pd.DataFrame, metric: str="normalized_overla
     for idx in range(len(df)):
         experiment_path = Path(df["output_path_nerf"].iloc[idx]).parents[3] / "alignment/alignment_scores.csv"
         experiments_dict[df["name"].iloc[idx]] = pd.read_csv(experiment_path)[f"{metric} Score"].values.tolist()
-    experiments_df = pd.DataFrame(list(experiments_dict.items()), columns=['name', 'normalized_overlap'])
+    experiments_df = pd.DataFrame(list(experiments_dict.items()), columns=['name', metric])
     # experiments_df.set_index('Index', inplace=True)
     return experiments_df
     

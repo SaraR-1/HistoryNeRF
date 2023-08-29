@@ -1,6 +1,6 @@
 import streamlit as st
 from pathlib import Path
-from utils import load_wandb_data, create_plot, read_alignemnt_metrics_file, load_media, select_experiment_name,create_scatterplot, figure_selection, select_experiment, get_test_list, compute_metrics
+from utils import load_wandb_data, create_plot, read_alignemnt_metrics_file, load_media, select_experiment_name, select_stats_alignment_images, create_scatterplot, figure_selection, select_experiment, get_test_list, compute_metrics
 from streamlit_image_comparison import image_comparison
 
 
@@ -23,15 +23,11 @@ fig = create_plot(df, f"{metric} train_scale", metric, colmap_filter="estimated"
 st.plotly_chart(fig, use_container_width=True)
 
 
-st.header("Alignement Evaluation")
+st.header("Alignment Evaluation")
 st.markdown("<br>", unsafe_allow_html=True)  # line break
-alignment_metric = st.selectbox("Select an alignment measure", ["normalized_overlap"], index=0)
+alignment_metric = st.selectbox("Select an alignment measure", ["normalized_overlap", "ssd", "mse", "ncc", "refined_normalized_overlap"], index=0)
 
-
-# fig = create_plot(df, f"{metric} test_scale", metric, colmap_filter="estimated", x_name="name")
-# st.plotly_chart(fig, use_container_width=True)
 df_alignment = read_alignemnt_metrics_file(df, alignment_metric)
-
 st.markdown("Explain what's here")
 fig = create_plot(df_alignment, alignment_metric, alignment_metric, colmap_filter="estimated", x_name="name", filter=False)
 st.plotly_chart(fig, use_container_width=True)
@@ -49,6 +45,18 @@ with col1:
         video_bytes = load_media(video_path, 'video')
         st.subheader(f"Experiment name: {df_exp1.name.iloc[0]}")
         st.video(video_bytes)
+    with st.expander("Alignment Examples", expanded=True):
+        examples_name_align, examples_name_keypoint = select_stats_alignment_images(Path(df_exp1["output_path_nerf"].iloc[0]))
+        for stat in ["max", "median", "min"]:
+            st.subheader(f"Allignment Example {stat}")
+            image = load_media(examples_name_align[stat], 'image')
+            st.image(image)
+    with st.expander("KeyPoints Match Examples", expanded=True):
+        for stat in ["max", "median", "min"]:
+            st.subheader(f"KeyPoints Match Example {stat}")
+            image = load_media(examples_name_keypoint[stat], 'image')
+            st.image(image)
+        
 
 with col2:
     df_exp2 = select_experiment_name(df, '2')
@@ -58,3 +66,16 @@ with col2:
         video_bytes = load_media(video_path, 'video')
         st.subheader(f"Experiment name: {df_exp2.name.iloc[0]}")
         st.video(video_bytes)
+    with st.expander("Alignment Examples", expanded=True):
+        examples_name_align, examples_name_keypoint = select_stats_alignment_images(Path(df_exp2["output_path_nerf"].iloc[0]))
+        for stat in ["max", "median", "min"]:
+            st.subheader(f"Allignment Example {stat}")
+            image = load_media(examples_name_align[stat], 'image')
+            st.image(image)
+    with st.expander("KeyPoints Match Examples", expanded=True):
+        for stat in ["max", "median", "min"]:
+            st.subheader(f"KeyPoints Match Example {stat}")
+            image = load_media(examples_name_keypoint[stat], 'image')
+            st.image(image)
+        
+        
