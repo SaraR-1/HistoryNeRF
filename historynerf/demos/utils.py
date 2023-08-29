@@ -6,6 +6,7 @@ import pandas as pd
 import wandb
 import numpy as np
 import plotly.express as px
+from streamlit_plotly_events import plotly_events
 import streamlit as st
 
 import torch
@@ -72,18 +73,40 @@ def load_media(file_path: Union[str, Path], media_type: str) -> Union[bytes, Ima
         else:
             raise ValueError(f'Unsupported media type: {media_type}')
 
-def create_plot(df: pd.DataFrame, metric: str, metric_title:str, colmap_filter: str):
-    df = filter_dataset_colmap(df, colmap_filter)
+def create_plot(df: pd.DataFrame, metric: str, metric_title:str, colmap_filter: str, x_name: str = "Training Sample Size", filter: bool=True):
+    if filter:
+        df = filter_dataset_colmap(df, colmap_filter)
+        
     df_p = df.explode(metric)
-    x = df_p["Training Sample Size"].astype(str)
+    x = df_p[x_name].astype(str)
     y = df_p[metric]
-    col = df_p["use_gradient_scaling"]
+    
+    if filter:
+        col = df_p["use_gradient_scaling"]
+    else:
+        col=None
 
     fig = px.box(x=x, y=y, color=col, points="outliers",
-                 labels={"x": "Training Sample Size", "y": metric, "color": "Gradient Scaling"},
-                 title=f"{metric_title} vs Training Sample Size")
+                 labels={"x": x_name, "y": metric, "color": "Gradient Scaling"},
+                 title=f"{metric_title} vs {x_name}")
+    if x_name == "Training Sample Size":
+        category_order = np.array(sorted(x.unique().astype(int)), dtype=str)
+    elif x_name == "name":
+        category_order = np.array(sorted(x.unique().astype(str)), dtype=str)
+    fig.update_xaxes(type='category', categoryorder='array', categoryarray = category_order)
+    return fig
 
-    category_order = np.array(sorted(x.unique().astype(int)), dtype=str)
+def figure_selection(df: pd.DataFrame, y: str, x: str, title: str, colmap_filter: str):
+    df = filter_dataset_colmap(df, colmap_filter)
+    fig = px.scatter(df, x=x, y=y, text=None, hover_data=None, title=title)
+    selected_points = plotly_events(fig)
+    return selected_points
+
+def create_scatterplot(df: pd.DataFrame, y: str, x: str, title:str, colmap_filter: str):
+    df = filter_dataset_colmap(df, colmap_filter)
+    fig = px.scatter(df, x=x, y=y, text=None, hover_data=None, title=title)
+    
+    category_order = sorted(df[x])
     fig.update_xaxes(type='category', categoryorder='array', categoryarray = category_order)
     return fig
 
@@ -104,6 +127,18 @@ def select_experiment(df: pd.DataFrame, exp_number: str) -> pd.DataFrame:
 
     return df_exp
 
+def select_experiment_name(df: pd.DataFrame, exp_number: str) -> pd.DataFrame:
+    """
+    Create selection options for the experiment and return selected experiment
+    """
+    st.subheader(f"Experiment {exp_number}")
+    experimenty_name = st.selectbox(f"Select the name of the Experiment {exp_number}", sorted(df["name"].unique()), index=0, key=f"experimenty_name{exp_number}")
+    colmap = st.selectbox("Select the colmap model", ["estimated"], index=0,key=f"colmap_filter{exp_number}")
+
+    df_exp = df[(df["name"] == experimenty_name)]
+    df_exp = filter_dataset_colmap(df_exp, colmap)
+
+    return df_exp
 
 def get_test_list(gt_images_dir: str) -> Tuple[List[Path], int]:
     """
@@ -111,7 +146,6 @@ def get_test_list(gt_images_dir: str) -> Tuple[List[Path], int]:
     """
     imgs_list = sorted(list(Path(gt_images_dir).glob("images/*.jpg")))
     return imgs_list, len(imgs_list)
-
 
 def compute_metrics(image_path1: str, image_path2: str) -> float:
     # Load the images
@@ -134,5 +168,13 @@ def compute_metrics(image_path1: str, image_path2: str) -> float:
     st.write(f"SSIM: {ssim(img1, img2).item()}")
     st.write(f"LPIPS: {lpips(img1, img2).item()}")
     
-
+def read_alignemnt_metrics_file(df: pd.DataFrame, metric: str="normalized_overlap"):
+    experiments_dict = {}
+    for idx in range(len(df)):
+        experiment_path = Path(df["output_path_nerf"].iloc[idx]).parents[3] / "alignment/alignment_scores.csv"
+        experiments_dict[df["name"].iloc[idx]] = pd.read_csv(experiment_path)[f"{metric} Score"].values.tolist()
+    experiments_df = pd.DataFrame(list(experiments_dict.items()), columns=['name', 'normalized_overlap'])
+    # experiments_df.set_index('Index', inplace=True)
+    return experiments_df
+    
 
