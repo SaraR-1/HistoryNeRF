@@ -1,13 +1,15 @@
 from dataclasses import dataclass
 from typing import Optional, List, Tuple
 from omegaconf import MISSING
+from historynerf.evaluation.alignment import NormTypes, KeypointDetectorProtocol 
 
 @dataclass
 class SamplingConfig:
     rnd_seed: Optional[int] = None
     sample_size: Optional[int] = None
     image_list: Optional[List[str]] = None
-    sequential_sample_step: Optional[int] = None
+    sequential_sample_step: Optional[int] = None # Step in between sequential samples
+    sequential_sample_start: Optional[int] = 0 # First sample to take sample_size sequential sample
 
 @dataclass
 class NoiseConfig:
@@ -91,6 +93,14 @@ class NeRFConfig:
         "kplanes", "kplanes-dynamic", "lerf", "lerf-big", "lerf-lite", "tetra-nerf", "tetra-nerf-original")
         error_message = f"Wrong NeRF method name. Allowed methods: {allowed_methods}"
         assert self.method_name in allowed_methods, error_message
+        
+@dataclass
+class AlignmentEvaluationConfig:
+    flag: Optional[bool] = MISSING
+    keypoint_detector: Optional[str] = MISSING
+    matcher_distance: Optional[str] = MISSING
+    match_filter: Optional[float] = MISSING
+    matched_keypoints_threshold: Optional[int]= MISSING
 
 @dataclass
 class EvaluationConfig:
@@ -99,6 +109,8 @@ class EvaluationConfig:
     gt_images_dir: Optional[str] = MISSING # test folder
     config_path: Optional[str] = MISSING # only used when running run_evaluation, already provided when running the entire pipeline
     output_dir: Optional[str] = MISSING # only used when running run_evaluation, already provided when running the entire pipeline
+    
+    alignment: AlignmentEvaluationConfig = MISSING
 
 @dataclass
 class Config:

@@ -9,7 +9,8 @@ from historynerf.config import Config, DataPreparationConfig, PoseEstimationConf
 from historynerf.data_preparation import DataPreparation
 from historynerf.colmap_load import ColmapLoader
 from historynerf.nerfstudio_wrapper import NSWrapper
-from historynerf.evaluation import NerfEvaluator, evaluate_compare_poses
+from historynerf.evaluation import NerfEvaluator, evaluate_compare_poses, evaluate_and_visualize_alignment
+
 
 root_dir = Path(__file__).parents[1]
 
@@ -89,6 +90,21 @@ def main(cfg: Config) -> None:
         )
     nerfevaluator.save_rendered()
     nerfevaluator.compute_metrics()
+    
+    if cfg_obj.evaluation.alignment.flag:
+        # Running the function on the synthetic images to get the visualizations
+        output_dir = evaluation_output_dir / "alignment"
+        output_dir = Path(nerf_obj.output_dir).parent / "alignment"
+        output_dir.mkdir(exist_ok=True)
+
+        evaluate_and_visualize_alignment(
+            image_directory=Path(data_obj.config.input_dir) if data_obj.skip_save else Path(data_obj.config.output_dir),
+            output_directory=output_dir, 
+            keypoint_detector=cfg_obj.evaluation.alignment.keypoint_detector,  
+            matcher_distance=cfg_obj.evaluation.alignment.matcher_distance, 
+            match_filter=cfg_obj.evaluation.alignment.match_filter, 
+            matched_keypoints_threshold=cfg_obj.evaluation.alignment.matched_keypoints_threshold
+            )
 
     # evaluate_compare_poses(
     #     camera_path1=Path(cfg_obj.evaluation.camera_pose_path_train), 

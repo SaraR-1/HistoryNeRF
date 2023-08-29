@@ -64,7 +64,7 @@ class DataPreparation:
         if self.config.sampling.sample_size:
             if self.config.sampling.rnd_seed:
                 random.Random(self.config.sampling.rnd_seed).shuffle(image_list)
-            undersample_list = image_list[:self.config.sampling.sample_size]
+            undersample_list = image_list[self.config.sampling.sequential_sample_start:self.config.sampling.sample_size+self.config.sampling.sequential_sample_start]
             return undersample_list
         elif self.config.sampling.sequential_sample_step:
             undersample_list = image_list[::self.config.sampling.sequential_sample_step]

@@ -18,18 +18,48 @@ class NormTypes(Enum):
     NORM_TYPE_MASK = cv2.NORM_TYPE_MASK
     NORM_RELATIVE = cv2.NORM_RELATIVE
     NORM_MINMAX = cv2.NORM_MINMAX
-
+    
 # Define a protocol for keypoint detectors
 class KeypointDetectorProtocol(Protocol):
     def detectAndCompute(self, image: np.ndarray, mask: Any) -> Tuple[List[cv2.KeyPoint], np.ndarray]:
         pass
-        
+    
+KEYPOINT_DETECTOR_MAPPING = {
+    "orb": cv2.ORB_create(),
+    "sift": cv2.SIFT_create()
+}
+
+NORM_MAPPING = {
+    "NORM_INF": cv2.NORM_INF,
+    "NORM_L1": cv2.NORM_L1,
+    "NORM_L2": cv2.NORM_L2,
+    "NORM_L2SQR": cv2.NORM_L2SQR,
+    "NORM_HAMMING": cv2.NORM_HAMMING,
+    "NORM_HAMMING2": cv2.NORM_HAMMING2,
+    "NORM_TYPE_MASK": cv2.NORM_TYPE_MASK,
+    "NORM_RELATIVE": cv2.NORM_RELATIVE,
+    "NORM_MINMAX": cv2.NORM_MINMAX,
+    
+}
+
+def get_keypoint_detector(detector_str: str):
+    try:
+        return KEYPOINT_DETECTOR_MAPPING[detector_str]
+    except ValueError:
+        raise NameError(f"keypoint Detector {detector_str} not supported.")
+
+def get_norm_type(norm_str: str):
+    try:
+        return NORM_MAPPING[norm_str]
+    except ValueError:
+        raise NameError(f"Norm {norm_str} not supported.")
+     
 class ImageAligner:
     def __init__(
         self, 
         image_directory: Path, 
-        keypoint_detector: KeypointDetectorProtocol,
-        matcher_distance: NormTypes,
+        keypoint_detector: str,
+        matcher_distance: str,
         match_filter: float, 
         matched_keypoints_threshold: int):
         """Evaluate the pair-wise alignemt of all the images in directory
@@ -42,13 +72,14 @@ class ImageAligner:
             matched_keypoints_threshold (int): threshold for the number of good matches required to consider the homography estimation as reliable
         """
         self.image_directory = image_directory
-        self.image_files, self.images, self.image_keypoints, self.image_descriptors = self._load_images_and_compute_keypoints(keypoint_detector)
+        self.image_files, self.images, self.image_keypoints, self.image_descriptors = self._load_images_and_compute_keypoints(get_keypoint_detector(keypoint_detector))
         _, self.coloured_images = self._load_images(cv2.IMREAD_COLOR)
         
         # cv2.NORM_HAMMING with cv2.ORB_create(), L2 with sift
         # self.bf = cv2.BFMatcher(matcher_distance.value, crossCheck = True)
         
         # Using FlannBasedMatcher for faster matching
+        matcher_distance = get_norm_type(matcher_distance)
         if matcher_distance in [NormTypes.NORM_L1, NormTypes.NORM_L2]:
             self.flann = cv2.FlannBasedMatcher({'algorithm': 0, 'trees': 5}, {'checks': 50})
         else:
@@ -326,7 +357,7 @@ def evaluate_and_visualize_alignment(
     }
     
     alignment_scores = {metric: [] for metric in metrics}
-    for (i, j, H) in alignments:
+    for (i, j, H) in tqdm(alignments, desc="Save Pair-Wise Alignment"):
         if H is not None:
             aligned_img1 = cv2.warpPerspective(aligner.images[i], H, (aligner.images[j].shape[1] + aligner.images[i].shape[1], aligner.images[j].shape[0]))
             overlap_img1 = aligned_img1[0:aligner.images[j].shape[0], 0:aligner.images[j].shape[1]]
@@ -351,24 +382,3 @@ def evaluate_and_visualize_alignment(
 
     save_alignment_scores_to_csv(alignment_scores, output_directory)
     save_alignment_scores_to_json(alignment_scores, output_directory)
-
-        
-    # Convert alignment_scores to a pandas DataFrame
-    # df = pd.DataFrame(alignment_scores, columns=["Image1 Index", "Image2 Index", "Image1 Name", "Image2 Name", "Score"])
-
-    # # Save the DataFrame to a CSV file
-    # df.to_csv(str(output_directory / 'alignment_scores.csv'), index=False)
-
-# Running the function on the synthetic images to get the visualizations
-images_path = Path("/home/sara/every6frames/subset_images")
-output_dir = Path("/home/sara/every6frames/subset_images_output")
-output_dir.mkdir(exist_ok=True)
-
-evaluate_and_visualize_alignment(
-    images_path, 
-    output_dir, 
-    keypoint_detector=cv2.ORB_create(),  
-    matcher_distance=NormTypes.NORM_HAMMING, 
-    match_filter=0.75, 
-    matched_keypoints_threshold=30
-    )

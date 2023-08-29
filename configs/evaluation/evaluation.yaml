@@ -7,3 +7,9 @@ gt_images_dir: "/workspace/data/bridge_of_sighs/data/test"
 
 config_path: 
 output_dir: 
+alignment:
+  flag: False
+  keypoint_detector: orb
+  matcher_distance: NORM_HAMMING
+  match_filter: 0.7
+  matched_keypoints_threshold: 30
