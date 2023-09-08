@@ -3,7 +3,7 @@ import os
 import numpy as np
 from pathlib import Path
 import pandas as pd
-from typing import Protocol, List, Tuple, Any
+from typing import Protocol, List, Tuple, Any, Dict
 from tqdm import tqdm
 from enum import Enum
 import json
@@ -24,34 +24,21 @@ class KeypointDetectorProtocol(Protocol):
     def detectAndCompute(self, image: np.ndarray, mask: Any) -> Tuple[List[cv2.KeyPoint], np.ndarray]:
         pass
     
-KEYPOINT_DETECTOR_MAPPING = {
+KEYPOINT_DETECTOR_MAPPING: Dict[str, KeypointDetectorProtocol] = {
     "orb": cv2.ORB_create(),
     "sift": cv2.SIFT_create()
 }
 
-NORM_MAPPING = {
-    "NORM_INF": cv2.NORM_INF,
-    "NORM_L1": cv2.NORM_L1,
-    "NORM_L2": cv2.NORM_L2,
-    "NORM_L2SQR": cv2.NORM_L2SQR,
-    "NORM_HAMMING": cv2.NORM_HAMMING,
-    "NORM_HAMMING2": cv2.NORM_HAMMING2,
-    "NORM_TYPE_MASK": cv2.NORM_TYPE_MASK,
-    "NORM_RELATIVE": cv2.NORM_RELATIVE,
-    "NORM_MINMAX": cv2.NORM_MINMAX,
-    
-}
-
-def get_keypoint_detector(detector_str: str):
+def get_keypoint_detector(detector_str: str) -> KeypointDetectorProtocol:
     try:
         return KEYPOINT_DETECTOR_MAPPING[detector_str]
-    except ValueError:
-        raise NameError(f"keypoint Detector {detector_str} not supported.")
+    except KeyError:
+        raise NameError(f"Keypoint detector {detector_str} not supported.")
 
-def get_norm_type(norm_str: str):
+def get_norm_type(norm_str: str) -> NormTypes:
     try:
-        return NORM_MAPPING[norm_str]
-    except ValueError:
+        return NormTypes[norm_str]
+    except KeyError:
         raise NameError(f"Norm {norm_str} not supported.")
      
 class ImageAligner:
@@ -110,9 +97,6 @@ class ImageAligner:
         matches = self.flann.knnMatch(desc1, desc2, k=2)
         
         # Filter matches using Lowe's ratio test
-        # breakpoint()
-        # good_matches = [m for m, n in matches if m.distance < self.match_filter * n.distance]
-        
         good_matches = [m for match in matches if len(match) == 2 for m, n in [match] if m.distance < self.match_filter * n.distance]        
         return good_matches
     
@@ -279,7 +263,17 @@ class ImageAligner:
             raise ValueError("Both images must have the same shape.")
         return np.sum((image1 - image2) ** 2)
 
-def save_alignment_scores_to_csv(alignment_scores, output_directory):
+class NumpyEncoder(json.JSONEncoder):
+    """ Special json encoder for numpy types """
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, (np.number, np.bool_)):
+            return obj.item()
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+    
+    
+def save_alignment_scores_to_csv(alignment_scores: Dict[str, List[Tuple[int, int, float]]], output_directory: Path) -> None:
     # Convert the dictionary of lists into a DataFrame
     df_list = []
     
@@ -295,19 +289,8 @@ def save_alignment_scores_to_csv(alignment_scores, output_directory):
     # Save the DataFrame to a CSV file
     df_list[0].to_csv(output_directory / "alignment_scores.csv", index=False)
     
-
-class NumpyEncoder(json.JSONEncoder):
-    """ Special json encoder for numpy types """
-    def default(self, obj):
-        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64)):
-            return int(obj)
-        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
-
-def save_alignment_scores_to_json(alignment_scores, output_directory):
+    
+def save_alignment_scores_to_json(alignment_scores: Dict[str, List[Tuple[int, int, float]]], output_directory: Path) -> None:
     # Convert the dictionary of lists into a structured dictionary for JSON
     structured_scores = {}
     for metric, scores in alignment_scores.items():
@@ -323,7 +306,8 @@ def evaluate_and_visualize_alignment(
     keypoint_detector: KeypointDetectorProtocol, 
     matcher_distance: NormTypes, 
     match_filter: float, 
-    matched_keypoints_threshold: int):
+    matched_keypoints_threshold: int
+    ) -> None:
     """
     Sample usage of the ImageAligner class to:
     1) Compute pair-wise alignment
