@@ -1,16 +1,17 @@
-import os
 from pathlib import Path
-from PIL import Image
+from typing import Dict, List, Tuple
+
 import cv2
-from matplotlib import pyplot as plt
+import json
+import matplotlib.pyplot as plt
 import numpy as np
+import os
+import seaborn as sns
 import torch
+from PIL import Image
 from torch import Tensor
 from torchmetrics import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
-import json
-import seaborn as sns
-import matplotlib.pyplot as plt
 import wandb
 
 from nerfstudio.cameras import camera_utils
@@ -22,17 +23,22 @@ from nerfstudio.utils.eval_utils import eval_setup
 from nerfstudio.utils.io import load_from_json
 from nerfstudio.exporter.exporter_utils import render_trajectory
 
-def extract_cameras(camera_path):
+
+def extract_cameras(camera_path: Path) -> Tuple[Dict, CameraType, List]:
+    """Extract camera information from a given path."""
     cameras_json = load_from_json(camera_path)
     camera_type = CAMERA_MODEL_TO_TYPE[cameras_json["camera_model"]]
     frames = cameras_json["frames"]
-
     return cameras_json, camera_type, frames
 
 
-
 class DataManager:
-    def __init__(self, config_path: Path, camera_path_test: Path, gt_images_dir: str=None):
+    def __init__(
+        self, 
+        config_path: Path, 
+        camera_path_test: Path, 
+        gt_images_dir: str=None
+        ):
         self.config, self.pipeline, _, self.step = eval_setup(config_path=config_path, eval_num_rays_per_chunk=None, test_mode="test")
         
         if not gt_images_dir:
@@ -105,14 +111,21 @@ class DataManager:
         return list(images_path), poses_testscale, poses_trainscale
 
 class NerfEvaluator:
-    def __init__(self, config_path: Path, camera_path_test: Path, gt_images_dir: Path=None, output_dir: Path=None):
+    def __init__(
+        self, 
+        config_path: Path, 
+        camera_path_test: Path, 
+        gt_images_dir: Path=None, 
+        output_dir: Path=None
+        ):
         self.data_manager = DataManager(config_path, camera_path_test, gt_images_dir)
 
         self.config_path = config_path
         self.output_dir = output_dir
         self.images_path, self.pred_images_testscale, self.pred_images_trainscale, self.gt_images = self.get_data()
 
-    def render_cameras(self, processed_poses):
+    def render_cameras(self, processed_poses: Tensor) -> Tensor:
+        """Render images from given camera poses."""
         cameras = Cameras(
             width=self.camera_properties["w"], 
             height=self.camera_properties["h"],
@@ -136,11 +149,8 @@ class NerfEvaluator:
         pred_images = torch.tensor(np.array(pred_images)).permute(0, 3, 1, 2)
         return pred_images
 
-        
-    def get_data(self):
-        '''
-        Compute metrics for a given image and ground truth image
-        '''
+    def get_data(self) -> Tuple[List[Path], Tensor, Tensor, Tensor]:
+        """Get evaluation data including ground truth and predicted images."""
         # width, height, fx, fy, cx, cy = [self.data_manager.cameras_json_test[i] for i in ['w', 'h', 'fl_x', 'fl_y', 'cx', 'cy']]
 
         self.camera_properties = {i: self.data_manager.cameras_json_test[i] for i in ['w', 'h', 'fl_x', 'fl_y', 'cx', 'cy']}
@@ -168,10 +178,8 @@ class NerfEvaluator:
 
         return images_path, pred_images_testscale, pred_images_trainscale, gt_images
 
-    def compute_metrics_singlescale(self, pred_scale):
-        '''
-        Compute metrics for a given image and ground truth image
-        '''
+    def compute_metrics_singlescale(self, pred_scale: str) -> None:
+        """Compute metrics like PSNR, SSIM, LPIPS for a single scale."""
         psnr = PeakSignalNoiseRatio(data_range=1.0, reduction='none', dim=[1,2,3])
         ssim = StructuralSimilarityIndexMeasure(data_range=1.0, reduction='none')
         lpips = LearnedPerceptualImagePatchSimilarity(normalize=True)
@@ -194,14 +202,13 @@ class NerfEvaluator:
         # Log metrics to wandb
         wandb.log(metrics_dict)
 
-    def compute_metrics(self):
+    def compute_metrics(self) -> None:
+        """Compute metrics for both test and train scales."""
         self.compute_metrics_singlescale(pred_scale="test")
         self.compute_metrics_singlescale(pred_scale="train")
         
-    def save_rendered_images_singlescale(self, pred_scale):
-        '''
-        Save all rendered (predict) images in a folder
-        '''
+    def save_rendered_images_singlescale(self, pred_scale: str) -> None:
+        """Save rendered images for a single scale."""
         if pred_scale == 'test':
             pred_images = self.pred_images_testscale
         elif pred_scale == 'train':
@@ -211,20 +218,20 @@ class NerfEvaluator:
         for i in range(pred_images.shape[0]):
             plt.imsave(self.output_dir / f"{pred_scale}_scale" / self.images_path[i], pred_images[i].permute(1,2,0).numpy())
     
-    def save_rendered_images(self):
+    def save_rendered_images(self) -> None:
+        """Save rendered images for both test and train scales."""
         self.save_rendered_images_singlescale(pred_scale="test")
         self.save_rendered_images_singlescale(pred_scale="train")
 
-    def save_rendered_video(self):
-        '''
-        Save rendered video - based on the training set
-        '''
+    def save_rendered_video(self) -> None:
+        """Save rendered video based on the training set."""
         output_dir_video = self.output_dir / "output.mp4"
         command = f"ns-render interpolate --load-config {self.config_path} --output-path {output_dir_video} --pose-source train"
 
         os.system(command)
 
-    def save_rendered(self):
+    def save_rendered(self) -> None:
+        """Save all rendered content, including images and video."""
         self.save_rendered_images()
         self.save_rendered_video()
         
