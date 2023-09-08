@@ -23,7 +23,7 @@ cs.store(group="nerf", name="base_nerf", node=NeRFConfig)
 cs.store(group="evaluation", name="base_evaluation", node=EvaluationConfig)
 
 
-@hydra.main(config_path=str(root_dir / "configs"), config_name="parent", version_base="1.1")
+@hydra.main(config_path=str(root_dir / "configs/run"), config_name="parent", version_base="1.1")
 def main(cfg: Config) -> None:
     cfg_obj = OmegaConf.to_object(cfg)
     # print(cfg_obj)
@@ -39,7 +39,7 @@ def main(cfg: Config) -> None:
             recon_dir=Path(cfg.pose_estimation.colmap_model_path), 
             output_dir=Path(data_obj.config.output_dir).parent / "processed_data_fixedcolmap", 
             imgs_dir=Path(data_obj.config.input_dir) if data_obj.skip_save else Path(data_obj.config.output_dir))
-        colmap_loader.sample_colmap()
+        colmap_loader.undersample()
 
         # Update cfg.colmap_model_path and data_obj.config.input_dir
         cfg.pose_estimation["colmap_model_path"], data_obj.config.input_dir = colmap_loader.update_path(current_colmap=cfg.pose_estimation["colmap_model_path"], current_input=data_obj.config.input_dir)
@@ -52,6 +52,16 @@ def main(cfg: Config) -> None:
         wandb_project=cfg.wandb_project,
         experiment_name=experiment_name,)
     nerf_obj.run()
+    
+    output_path_nerf = Path(nerf_obj.output_dir).parent / "nerf" / experiment_name / cfg_obj.nerf.method_name / "default"
+    output_config_path = output_path_nerf / "config.yml"
+    evaluation_output_dir = output_path_nerf / "evaluation"
+    evaluation_output_dir.mkdir(exist_ok=True)
+    
+    nerf_obj.render(
+        config_path=output_config_path, 
+        output_dir=evaluation_output_dir
+        )
 
     # Get the experiment id from the name
     api = wandb.Api()
@@ -74,11 +84,6 @@ def main(cfg: Config) -> None:
     # Evaluate and log results
     output_camera_path = Path(nerf_obj.output_dir).parent / "processed_data" / "transforms.json"
 
-    output_path_nerf = Path(nerf_obj.output_dir).parent / "nerf" / experiment_name / cfg_obj.nerf.method_name / "default"
-    output_config_path = output_path_nerf / "config.yml"
-    evaluation_output_dir = output_path_nerf / "evaluation"
-    evaluation_output_dir.mkdir(exist_ok=True)
-
     # Log output_path_nerf and output_config_path in the wandb config
     wandb.config.update({"output_path_nerf": str(output_path_nerf), "output_config_path": str(output_config_path)})
 
@@ -88,7 +93,7 @@ def main(cfg: Config) -> None:
         gt_images_dir=cfg_obj.evaluation.gt_images_dir, 
         output_dir=evaluation_output_dir,
         )
-    nerfevaluator.save_rendered()
+    nerfevaluator.save_rendered_images()
     nerfevaluator.compute_metrics()
     
     if cfg_obj.evaluation.alignment.flag:
@@ -106,12 +111,6 @@ def main(cfg: Config) -> None:
             matched_keypoints_threshold=cfg_obj.evaluation.alignment.matched_keypoints_threshold
             )
 
-    # evaluate_compare_poses(
-    #     camera_path1=Path(cfg_obj.evaluation.camera_pose_path_train), 
-    #     camera_path2=output_camera_path, 
-    #     angular_error_max_dist=15, 
-    #     translation_error_max_dist=0.25, 
-    #     output_dir=evaluation_output_dir)
 
     wandb.finish()
 
