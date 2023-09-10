@@ -23,7 +23,7 @@ cs.store(group="nerf", name="base_nerf", node=NeRFConfig)
 cs.store(group="evaluation", name="base_evaluation", node=EvaluationConfig)
 
 
-@hydra.main(config_path=str(root_dir / "configs/run"), config_name="parent", version_base="1.1")
+@hydra.main(config_path=str(root_dir / "configs"), config_name="parent_run", version_base="1.1")
 def main(cfg: Config) -> None:
     cfg_obj = OmegaConf.to_object(cfg)
     # print(cfg_obj)

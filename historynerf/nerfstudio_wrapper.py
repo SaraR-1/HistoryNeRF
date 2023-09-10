@@ -38,10 +38,10 @@ def dict_to_arg_string(dictionary: DictConfig[str, Union[DictConfig, str, bool, 
 class NSWrapper:
     def __init__(self,
                  pose_estimation_config: PoseEstimationConfig,
-                 nerf_config: NeRFConfig,
-                 wandb_project: str,
-                 experiment_name: str,
-                 output_dir: str,
+                 nerf_config: Optional[NeRFConfig] = None,
+                 wandb_project: Optional[str] = "",
+                 experiment_name: Optional[str] = "",
+                 output_dir: str = "",
                  input_dir: Optional[str] = None):
         """
         Initialize the NSWrapper class.        
@@ -61,9 +61,10 @@ class NSWrapper:
         output_dir_processed_data.mkdir(exist_ok=True)
         self.output_dir_processed_data = output_dir_processed_data
 
-        output_dir_nerf = self.output_dir.parents[0] / "nerf"
-        output_dir_nerf.mkdir(exist_ok=True)
-        self.output_dir_nerf = output_dir_nerf
+        if self.nerf_config:
+            output_dir_nerf = self.output_dir.parents[0] / "nerf"
+            output_dir_nerf.mkdir(exist_ok=True)
+            self.output_dir_nerf = output_dir_nerf
 
     def process_data(self) -> None:
         """Process images into a nerfstudio dataset, calculates the camera poses for each image using `COLMAP <https://colmap.github.io/>`_."""
