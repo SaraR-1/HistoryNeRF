@@ -1,4 +1,4 @@
-## 1. Installation: Setup the environment
+## 0. Installation: Setup the environment
 Use the provided docker image to install the dependencies for nerfstudio. Docker (get docker) and nvidia GPU drivers (get nvidia drivers), capable of working with CUDA 11.8, must be installed.
 
 Then update the required dependencies:
@@ -6,77 +6,33 @@ Then update the required dependencies:
 python3.10 -m pip install --upgrade pip
 pip install -e ./
 
-
-pip install kplanes-nerfstudio
 ```
 
-## 2. NeRFStudio Preprocessing and Structure from motion
-Usage: `ns-process-data images` `--data PATH --output-dir PATH [--verbose | --no-verbose] [--camera-type {perspective,fisheye,equirectangular}]
-                              [--matching-method {exhaustive,sequential,vocab_tree}] [--sfm-tool {any,colmap,hloc}] [--refine-pixsfm | --no-refine-pixsfm]
-                              [--feature-type {any,sift,superpoint,superpoint_aachen,superpoint_max,superpoint_inloc,r2d2,d2net-ss,sosnet,disk}]
-                              [--matcher-type {any,NN,superglue,superglue-fast,NN-superpoint,NN-ratio,NN-mutual,adalam}] [--num-downscales INT]
-                              [--skip-colmap | --no-skip-colmap] [--skip-image-processing | --no-skip-image-processing] [--colmap-model-path PATH] [--colmap-cmd STR]
-                              [--images-per-equirect {8,14}] [--crop-factor FLOAT FLOAT FLOAT FLOAT] [--crop-bottom FLOAT] [--gpu | --no-gpu]
-                              [--use-sfm-depth | --no-use-sfm-depth] [--include-depth-debug | --no-include-depth-debug]`
-
-Explaining `any` defaults, specifically how sfm replaces the default parameters `any` by usable value:
-
+## 1. Run COLMAP only on the entire dataset
+The input path can either be a folder to the images of a video that will be divided into frames before running the pose estimation
 ```
-if sfm_tool == "any":
-    if (feature_type in ("any", "sift")) and (matcher_type in ("any", "NN")):
-        sfm_tool = "colmap"
-    else:
-        sfm_tool = "hloc"
-if sfm_tool == "colmap":
-    if (feature_type not in ("any", "sift")) or (matcher_type not in ("any", "NN")):
-        return (None, None, None)
-    return ("colmap", "sift", "NN")
-if sfm_tool == "hloc":
-    if feature_type in ("any", "superpoint"):
-        feature_type = "superpoint_aachen"
-
-    if matcher_type == "any":
-        matcher_type = "superglue"
-    elif matcher_type == "NN":
-        matcher_type = "NN-mutual"
-```
-
-## 3. Train a NeRF model Example
-1. Train Gold Standard
-```
-python3 historynerf/run.py wandb_project=bridge_of_sighs data_preparation.input_dir=/workspace/data/bridge_of_sighs/output/gold_standard/processed_data data_preparation.output_dir=/workspace/data/bridge_of_sighs/output/gold_standard data_preparation.overwrite_output=True pose_estimation.skip_image_processing_flag=True pose_estimation.skip_colmap_flag=True pose_estimation.colmap_model_path=/workspace/data/bridge_of_sighs/output/gold_standard/processed_data/colmap/sparse/0 pose_estimation.matching_method=sequential nerf.train_split_fraction=1. nerf.pipeline.model.use_gradient_scaling=False
+python3 historynerf/run_goldstandard.py input_dir=/workspace/data/old_petrol_pumps/data/video_trim1.mp4 output_dir=/workspace/data/old_petrol_pumps/data pose_estimation.matching_method=sequential
 ```
 
 ```
-python3 historynerf/run.py wandb_project=bridge_of_sighs data_preparation.input_dir=/workspace/data/bridge_of_sighs/data/train/images data_preparation.output_dir=/workspace/data/bridge_of_sighs/output/alltrain data_preparation.overwrite_output=False
-pose_estimation.matching_method=sequential nerf.train_split_fraction=1. nerf.pipeline.model.use_gradient_scaling=False
-
-python3 historynerf/run.py wandb_project=bridge_of_sighs_colmap_nerf data_preparation.input_dir=/workspace/data/bridge_of_sighs/data/train/images data_preparation.output_dir=/workspace/data/bridge_of_sighs/output_colmap_nerf/every30frames data_preparation.overwrite_output=False data_preparation.sampling.sequential_sample_step=30 pose_estimation.matching_method=sequential nerf.train_split_fraction=1. nerf.pipeline.model.use_gradient_scaling=False nerf.vis=wandb nerf.max_num_iterations=60000
-
-
-python3 historynerf/run.py wandb_project=bridge_of_sighs_colmap_nerf data_preparation.input_dir=/workspace/data/bridge_of_sighs/output_colmap_nerf/every9frames/processed_data/images data_preparation.output_dir=/workspace/data/bridge_of_sighs/output_colmap_nerf/every9frames data_preparation.overwrite_output=True pose_estimation.skip_colmap_flag=True pose_estimation.skip_image_processing_flag=True pose_estimation.colmap_model_path=/workspace/data/bridge_of_sighs/output_colmap_nerf/every9frames/processed_data/colmap/sparse/0 nerf.vis=wandb nerf.max_num_iterations=600 nerf.train_split_fraction=1. nerf.method_name=kplanes nerf.dataparser_name=nerfstudio-data
-
-python3 historynerf/run.py wandb_project=bridge_of_sighs_colmap_nerf data_preparation.input_dir=/workspace/data/bridge_of_sighs/output_colmap_nerf/every9frames/processed_data/images data_preparation.output_dir=/workspace/data/bridge_of_sighs/output_colmap_nerf/every9frames data_preparation.overwrite_output=True pose_estimation.skip_colmap_flag=True pose_estimation.skip_image_processing_flag=True pose_estimation.colmap_model_path=/workspace/data/bridge_of_sighs/train/processed_data/colmap/sparse/0 nerf.vis=wandb nerf.max_num_iterations=600 nerf.train_split_fraction=1. nerf.method_name=nerfacto nerf.dataparser_name=nerfstudio-data
-
-<!-- ns-viewer --load-config /workspace/data/bridge_of_sighs/output_colmap_nerf/every3frames/nerf/roaring-kudu/nerfacto/default/config.yml -->
-
-<!-- ns-train kplanes --data /workspace/data/bridge_of_sighs/output_colmap_nerf/every4frames/processed_data --vis viewer+wandb --max-num-iterations 60000 nerfstudio-data --train-split-fraction 1. -->
-
-
-<!-- export NERF_CHECKPOINT_PATH=/workspace/data/bridge_of_sighs/output_colmap_nerf/every2frames_60kit/nerf/hopeful-kiwi/nerfacto/default/nerfstudio_models/step-000059999.ckpt
-
-ns-train nerfbusters --data /workspace/data/bridge_of_sighs/output_colmap_nerf/every2frames_60kit/processed_data --pipeline.nerf-checkpoint-path $NERF_CHECKPOINT_PATH nerfstudio-data --eval-mode train-split-fraction -->
-
+python3 historynerf/run_goldstandard.py input_dir=/workspace/data/old_petrol_pumps/data/video_trim1.mp4 output_dir=/workspace/data/old_petrol_pumps/data pose_estimation.matching_method=exhaustive
 ```
 
-2. Split Into Train and Test
+## 2. Split the data into train and test, this will also split the COLMAP previously estimated accordingly 
 ```
-python3 historynerf/split_data.py --SplitDataConfig.camera_path /workspace/data/bridge_of_sighs/output/gold_standard/processed_data/transforms.json --SplitDataConfig.n 80 --SplitDataConfig.images_dir /workspace/data/bridge_of_sighs/output/gold_standard/processed_data/images --SplitDataConfig.output_dir /workspace/data/bridge_of_sighs/data
+python3 historynerf/run_splitdata.py camera_path=/workspace/data/old_petrol_pumps/processed_data/transforms.json n=80 images_dir=/workspace/data/old_petrol_pumps/processed_data/images output_dir=/workspace/data/old_petrol_pumps/data
 ```
 
+## 3. Run NeRFs experiments
+Run the help function to visualise all the arguments:
+```
+python3 historynerf/run.py --help
+```
 
-## 4. Render Video or Visualize Existing Run
-First we must create a path for the camera to follow. This can be done in the viewer under the “RENDER” tab. Orient your 3D view to the location where you wish the video to start, then press “ADD CAMERA”. This will set the first camera key frame. Continue to new viewpoints adding additional cameras to create the camera path. We provide other parameters to further refine your camera path. Once satisfied, press “RENDER” which will display a modal that contains the command needed to render the video. Kill the training job (or create a new terminal if you have lots of compute) and run the command to generate the video.
+Let's now see different example of experiments we can run
+### Undersample, Run COLMAP, Train a NeRF model
 
-Given a pretrained model checkpoint, you can start the viewer by running:
-`ns-viewer --load-config {outputs/.../config.yml}`
+### Use previously undersampled, use previously run COLMAP, Train a NeRF model
+Note that two types of COLMAP results are accepted here:
+a. COLMAP run on the same undersampled set (this is useful if I want to only use a smaller subset, but only change something in the NeRF training).
+b. COLMAP run on the gold standard dataset (in step 1., before splitting into train and test and undersampling the training set). This is useful to compare how NeRF's results depend on COLMAP. This is based on the assumption the COLMAP estimated on the entire set are more accurate than the camera pose estimated only using a smaller set of the training data.
