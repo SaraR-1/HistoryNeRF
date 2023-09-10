@@ -5,6 +5,22 @@ import cv2
 import shutil
 from historynerf.config import DataPreparationConfig
 
+def video_preparation(input_dir: str, output_dir: str, overwrite_output: bool):
+    """Extract frames from a video and save them in a folder."""
+    frame_dir = Path(output_dir) / "frames"
+    frame_dir.mkdir(exist_ok=overwrite_output)
+    capture = cv2.VideoCapture(input_dir)
+    frame_nr = 0
+    while True:
+        success, frame = capture.read()
+        if not success:
+            break
+        cv2.imwrite(str(frame_dir / f'{frame_nr}.jpg'), frame)
+        frame_nr += 1
+    capture.release()
+    print(f"Number of frames found: {frame_nr}") 
+    
+
 class DataPreparation:
     def __init__(
         self, 
@@ -26,20 +42,8 @@ class DataPreparation:
         output_dir.mkdir(exist_ok=self.config.overwrite_output, parents=True)
         self.config.output_dir = output_dir
 
-    def video_to_frames(self) -> int:
-        """Extract frames from a video and save them in a folder."""
-        frame_dir = Path(self.config.output_dir) / "frames"
-        frame_dir.mkdir(exist_ok=self.config.overwrite_output)
-        capture = cv2.VideoCapture(self.config.input_dir)
-        frame_nr = 0
-        while True:
-            success, frame = capture.read()
-            if not success:
-                break
-            cv2.imwrite(str(frame_dir / f'{frame_nr}.jpg'), frame)
-            frame_nr += 1
-        capture.release()
-        print(f"Number of frames found: {frame_nr}") 
+    def _video_to_frames(self) -> None:
+        video_preparation(input_dir=self.config.input_dir, output_dir=self.config.output_dir, overwrite_output=self.config.overwrite_output)
 
     def _sample_list(self, item_list: List[str], force_sequential: bool = False) -> List[str]:
         """Sample the items from a list based on the configuration."""
@@ -75,7 +79,7 @@ class DataPreparation:
         """Copy or resize the images in the undersample list to the output directory."""
         video_flag = not Path(self.config.input_dir).is_dir()
         if video_flag:
-            self.video_to_frames()
+            self._video_to_frames()
             undersample_list = self.undersample_video()
         else:
             undersample_list = self.undersample()

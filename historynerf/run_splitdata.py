@@ -6,16 +6,11 @@ from typing import List
 
 import hydra
 import numpy as np
+from historynerf.config import SplitDataConfig
 from hydra.core.config_store import ConfigStore
 
 from nerfstudio.utils.io import load_from_json
 
-@dataclass
-class SplitDataConfig:
-    camera_path: Path
-    n: int
-    images_dir: Path
-    output_dir: Path
 
 class SplitData:
     """
@@ -95,9 +90,9 @@ class SplitData:
 
 root_dir = Path(__file__).parents[1]
 cs = ConfigStore.instance()
-cs.store(name="split_data", node=SplitDataConfig)
+cs.store(name="base_splitdata", node=SplitDataConfig)
 
-@hydra.main(config_path=str(root_dir / "configs/splitdata"), config_name="split_data")
+@hydra.main(config_path=str(root_dir / "configs"), config_name="parent_splitdata", version_base="1.1")
 def main(cfg: SplitDataConfig) -> None:
     data_split = SplitData(cfg)
     data_split.create_data()
