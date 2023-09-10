@@ -1,3 +1,6 @@
+defaults:
+  - base_splitdata
+  
 camera_path: "/default/path/to/camera.json"
 n: 10
 images_dir: "/default/path/to/images"
