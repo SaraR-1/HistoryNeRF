@@ -4,12 +4,16 @@ from pathlib import Path
 from historynerf.config import GoldStandardConfig, PoseEstimationConfig
 from historynerf.data_preparation import video_preparation
 from historynerf.nerfstudio_wrapper import NSWrapper
+from historynerf.utils import register_configs
 
 root_dir = Path(__file__).parents[1]
-cs = ConfigStore.instance()
-cs.store(name="base_goldstandard", node=GoldStandardConfig)
-cs.store(group="pose_estimation", name="base_pose_estimation", node=PoseEstimationConfig)
 
+CONFIGURATIONS = [
+    ('base', 'base_goldstandard', GoldStandardConfig),
+    ('pose_estimation', 'base_pose_estimation', PoseEstimationConfig),
+]
+
+register_configs(CONFIGURATIONS)
 @hydra.main(config_path=str(root_dir / "configs"), config_name="parent_goldstandard", version_base="1.1")
 def main(cfg: GoldStandardConfig) -> None:
     print(cfg)

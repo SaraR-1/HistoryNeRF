@@ -5,114 +5,105 @@ from omegaconf import OmegaConf
 from pathlib import Path
 import wandb
 
-from historynerf.config import Config, DataPreparationConfig, PoseEstimationConfig, NeRFConfig, EvaluationConfig, SamplingConfig
+from historynerf.config import (Config, DataPreparationConfig, PoseEstimationConfig,
+                               NeRFConfig, EvaluationConfig, SamplingConfig)
 from historynerf.data_preparation import DataPreparation
 from historynerf.colmap_load import ColmapLoader
 from historynerf.nerfstudio_wrapper import NSWrapper
-from historynerf.evaluation import NerfEvaluator, evaluate_compare_poses, evaluate_and_visualize_alignment
-
+from historynerf.evaluation import NerfEvaluator, evaluate_and_visualize_alignment
+from historynerf.utils import register_configs
 
 root_dir = Path(__file__).parents[1]
 
-cs = ConfigStore.instance()
-cs.store(name="base_parent", node=Config)
-cs.store(group="data_preparation", name="base_data", node=DataPreparationConfig)
-cs.store(group="data_preparation/sampling", name="base_sampling", node=SamplingConfig)
-cs.store(group="pose_estimation", name="base_pose_estimation", node=PoseEstimationConfig)
-cs.store(group="nerf", name="base_nerf", node=NeRFConfig)
-cs.store(group="evaluation", name="base_evaluation", node=EvaluationConfig)
+CONFIGURATIONS = [
+    ('base', 'base_parent', Config),
+    ('data_preparation', 'base_data', DataPreparationConfig),
+    ('data_preparation/sampling', 'base_sampling', SamplingConfig),
+    ('pose_estimation', 'base_pose_estimation', PoseEstimationConfig),
+    ('nerf', 'base_nerf', NeRFConfig),
+    ('evaluation', 'base_evaluation', EvaluationConfig)
+]
 
 
+def initialize_wandb(cfg_obj: dict, experiment_name: str) -> None:
+    """Initialize the Weights and Biases logging."""
+    api = wandb.Api()
+    experiment_id = api.runs(f"{cfg_obj.wandb_entity}/{cfg_obj.wandb_project}", filters={"config.experiment_name": experiment_name})[0].id
+    if cfg_obj.wandb_log:
+        print("Resume W&B.")
+        wandb.init(
+            project=cfg_obj.wandb_project, 
+            id=experiment_id, 
+            resume=True, 
+            config=cfg_obj
+            )
+    else:
+        wandb.init(project=cfg_obj.wandb_project, mode="disabled")
+
+register_configs(CONFIGURATIONS)
 @hydra.main(config_path=str(root_dir / "configs"), config_name="parent_run", version_base="1.1")
 def main(cfg: Config) -> None:
+    """Main function to run the pipeline."""
     cfg_obj = OmegaConf.to_object(cfg)
-    # print(cfg_obj)
-    # Randomly generate a name for the experiment
+
     experiment_name = generate_slug(2)
-    
-    # Simple example to run data_preparation, here only with undersampling
+
     data_obj = DataPreparation(cfg.data_preparation)
     data_obj.save_images()
 
     if cfg.pose_estimation.colmap_model_path:
         colmap_loader = ColmapLoader(
-            recon_dir=Path(cfg.pose_estimation.colmap_model_path), 
-            output_dir=Path(data_obj.config.output_dir).parent / "processed_data_fixedcolmap", 
-            imgs_dir=Path(data_obj.config.input_dir) if data_obj.skip_save else Path(data_obj.config.output_dir))
+            recon_dir=Path(cfg.pose_estimation.colmap_model_path),
+            output_dir=Path(data_obj.config.output_dir).parent / "processed_data_fixedcolmap",
+            imgs_dir=Path(data_obj.config.input_dir) if data_obj.skip_save else Path(data_obj.config.output_dir)
+            )
         colmap_loader.undersample()
+        cfg.pose_estimation["colmap_model_path"], data_obj.config.input_dir = colmap_loader.update_path(
+            current_colmap=cfg.pose_estimation["colmap_model_path"], current_input=data_obj.config.input_dir)
 
-        # Update cfg.colmap_model_path and data_obj.config.input_dir
-        cfg.pose_estimation["colmap_model_path"], data_obj.config.input_dir = colmap_loader.update_path(current_colmap=cfg.pose_estimation["colmap_model_path"], current_input=data_obj.config.input_dir)
-            
     nerf_obj = NSWrapper(
         input_dir=data_obj.config.input_dir if data_obj.skip_save else None,
         output_dir=data_obj.config.output_dir,
-        pose_estimation_config=cfg.pose_estimation, 
+        pose_estimation_config=cfg.pose_estimation,
         nerf_config=cfg.nerf,
         wandb_project=cfg.wandb_project,
-        experiment_name=experiment_name,)
+        experiment_name=experiment_name
+    )
     nerf_obj.run()
-    
+
+    initialize_wandb(cfg_obj, experiment_name)
+
     output_path_nerf = Path(nerf_obj.output_dir).parent / "nerf" / experiment_name / cfg_obj.nerf.method_name / "default"
-    output_config_path = output_path_nerf / "config.yml"
     evaluation_output_dir = output_path_nerf / "evaluation"
     evaluation_output_dir.mkdir(exist_ok=True)
-    
-    nerf_obj.render(
-        config_path=output_config_path, 
-        output_dir=evaluation_output_dir
-        )
 
-    # Get the experiment id from the name
-    api = wandb.Api()
-    # breakpoint()
-    experiment_id = api.runs(f"{cfg_obj.wandb_entity}/{cfg_obj.wandb_project}", filters={"config.experiment_name": experiment_name})[0].id
-    print("Resume W&B.")
-    # Add a flag to disable wandb from the config file
-    if cfg_obj.wandb_log:
-        wandb.init(
-            project=cfg_obj.wandb_project,
-            id=experiment_id,
-            resume=True,
-            config=OmegaConf.to_container(cfg, resolve=True, enum_to_str=True,),)
-    else:
-        wandb.init(project=cfg_obj.wandb_project, mode="disabled")
+    nerf_obj.render(config_path=output_path_nerf / "config.yml", output_dir=evaluation_output_dir)
 
-    # Log number of images used for training, read number of images in input_dir in cfg_obj
     wandb.log({"Training Sample Size": len(list(Path(nerf_obj.input_dir).glob("*.jpg")))})
-
-    # Evaluate and log results
-    output_camera_path = Path(nerf_obj.output_dir).parent / "processed_data" / "transforms.json"
-
-    # Log output_path_nerf and output_config_path in the wandb config
-    wandb.config.update({"output_path_nerf": str(output_path_nerf), "output_config_path": str(output_config_path)})
+    wandb.config.update({"output_path_nerf": str(output_path_nerf), "output_config_path": str(output_path_nerf / "config.yml")})
 
     nerfevaluator = NerfEvaluator(
-        config_path=output_config_path, 
+        config_path=output_path_nerf / "config.yml",
         camera_path_test=Path(cfg_obj.evaluation.camera_pose_path_test),
-        gt_images_dir=cfg_obj.evaluation.gt_images_dir, 
-        output_dir=evaluation_output_dir,
+        gt_images_dir=cfg_obj.evaluation.gt_images_dir,
+        output_dir=evaluation_output_dir
         )
     nerfevaluator.save_rendered_images()
     nerfevaluator.compute_metrics()
-    
+
     if cfg_obj.evaluation.alignment.flag:
-        # Running the function on the synthetic images to get the visualizations
-        output_dir = evaluation_output_dir / "alignment"
         output_dir = Path(nerf_obj.output_dir).parent / "alignment"
         output_dir.mkdir(exist_ok=True)
-
         evaluate_and_visualize_alignment(
             image_directory=Path(data_obj.config.input_dir) if data_obj.skip_save else Path(data_obj.config.output_dir),
-            output_directory=output_dir, 
-            keypoint_detector=cfg_obj.evaluation.alignment.keypoint_detector,  
-            matcher_distance=cfg_obj.evaluation.alignment.matcher_distance, 
-            match_filter=cfg_obj.evaluation.alignment.match_filter, 
-            matched_keypoints_threshold=cfg_obj.evaluation.alignment.matched_keypoints_threshold
-            )
-
+            output_directory=output_dir,
+            keypoint_detector=cfg_obj.evaluation.alignment.keypoint_detector,
+            matcher_distance=cfg_obj.evaluation.alignment.matcher_distance,
+            match_filter=cfg_obj.evaluation.alignment.match_filter,
+            matched_keypoints_threshold=cfg_obj.evaluation.alignment.matched_keypoints_threshold)
 
     wandb.finish()
+
 
 if __name__ == "__main__":
     main()
