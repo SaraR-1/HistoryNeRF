@@ -31,6 +31,9 @@ python3 historynerf/run.py --help
 
 Let's now see different example of experiments we can run
 ### Undersample, Run COLMAP, Train a NeRF model
+```python
+python3 historynerf/run.py wandb_log=True wandb_project=old_petrol_pumps data_preparation.input_dir=/workspace/data/old_petrol_pumps/data/train/images data_preparation.output_dir=/workspace/data/old_petrol_pumps/every50frames data_preparation.overwrite_output=False data_preparation.sampling.sequential_sample_step=50 pose_estimation.matching_method=exhaustive nerf.train_split_fraction=1. nerf.pipeline.model.use_gradient_scaling=True nerf.vis=wandb nerf.max_num_iterations=60000 evaluation.alignment.flag=True
+```
 
 ### Use previously undersampled, use previously run COLMAP, Train a NeRF model
 Note that two types of COLMAP results are accepted here:
