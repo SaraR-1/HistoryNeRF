@@ -57,7 +57,10 @@ class NSWrapper:
     def initialize(self) -> None:
         """Create output directories within the specified directory."""
         condition = not self.pose_estimation_config.skip_colmap_flag
-        output_dir_processed_data = self.output_dir.parents[0] / "processed_data" if condition else Path(self.pose_estimation_config.colmap_model_path).parents[2]
+        if self.output_dir.name != "processed_data":
+            output_dir_processed_data = self.output_dir.parents[0] / "processed_data" if condition else Path(self.pose_estimation_config.colmap_model_path).parents[2]
+        else:
+            output_dir_processed_data = self.output_dir
         output_dir_processed_data.mkdir(exist_ok=True)
         self.output_dir_processed_data = output_dir_processed_data
 

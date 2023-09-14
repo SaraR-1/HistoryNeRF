@@ -23,7 +23,7 @@ def main(cfg: GoldStandardConfig) -> None:
         
     ns_object = NSWrapper(
         pose_estimation_config=cfg.pose_estimation, 
-        output_dir=cfg.output_dir, 
+        output_dir=Path(cfg.output_dir) / "processed_data", 
         input_dir=cfg.input_dir
         )
     
