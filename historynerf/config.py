@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List, Tuple
 from omegaconf import MISSING
-from historynerf.evaluation.alignment import NormTypes, KeypointDetectorProtocol 
 
 @dataclass
 class SamplingConfig:

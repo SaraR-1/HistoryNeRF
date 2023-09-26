@@ -8,13 +8,17 @@ import numpy as np
 import plotly.express as px
 from streamlit_plotly_events import plotly_events
 import streamlit as st
+import json
+import subprocess
+from typing import List
+from historynerf.config import NeRFConfig, NeRFPipelineConfig, MachineConfig, NeRFDataManagerConfig, NeRFModelConfig, NeRFCameraOptimizerConfig, EvaluationConfig, AlignmentEvaluationConfig, PoseEstimationConfig
 
 import torch
 from torchvision.transforms.functional import to_tensor
 from torchmetrics import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
-def load_wandb_data(entity: str, project: str) -> pd.DataFrame:
+def load_wandb_data(entity: str, project: str, state: List[str] = ["finished"]) -> pd.DataFrame:
     '''
     Load the data from W&B and return a dataframe.
     '''
@@ -23,16 +27,31 @@ def load_wandb_data(entity: str, project: str) -> pd.DataFrame:
 
     data = []
     for run in runs:
-        if run.state == "finished":
+        if run.state in state:
             try:
+                if isinstance(run.config["nerf"], str):
+                    config_nerf = eval(run.config["nerf"])
+                    config_pose = eval(run.config["pose_estimation"])
+                    use_gradient_scaling = config_nerf.pipeline.model.use_gradient_scaling
+                    max_num_iterations =config_nerf.max_num_iterations
+                    method_name = config_nerf.method_name
+                    colmap_model_path = config_pose.colmap_model_path if config_pose.colmap_model_path is not None else "",
+                    gt_images_dir = eval(run.config["evaluation"]).gt_images_dir
+                else:
+                    use_gradient_scaling = run.config["nerf"]["pipeline"]["model"]["use_gradient_scaling"]
+                    max_num_iterations = run.config["nerf"]["max_num_iterations"]
+                    method_name = run.config["nerf"]["method_name"]
+                    colmap_model_path = run.config["pose_estimation"]["colmap_model_path"] if run.config["pose_estimation"]["colmap_model_path"] is not None else "",
+                    gt_images_dir = run.config["evaluation"]["gt_images_dir"]
+                    
                 data.append({
                     "name": run.name,
-                    "use_gradient_scaling": run.config["nerf"]["pipeline"]["model"]["use_gradient_scaling"], 
-                    "max_num_iterations": run.config["nerf"]["max_num_iterations"],
-                    "method_name": run.config["nerf"]["method_name"],
+                    "use_gradient_scaling": use_gradient_scaling,
+                    "max_num_iterations": max_num_iterations,
+                    "method_name": method_name,
+                    "colmap_model_path": colmap_model_path,
+                    "gt_images_dir": gt_images_dir,
                     "output_path_nerf": run.config["output_path_nerf"],
-                    "colmap_model_path": run.config["pose_estimation"]["colmap_model_path"] if run.config["pose_estimation"]["colmap_model_path"] is not None else "",
-                    "gt_images_dir": run.config["evaluation"]["gt_images_dir"],
                     "Training Sample Size": run.summary["Training Sample Size"], 
                     "output_config_path": run.config["output_config_path"],
                     "SSIM test_scale": run.summary["SSIM test_scale"],
@@ -110,12 +129,14 @@ def create_scatterplot(df: pd.DataFrame, y: str, x: str, title:str, colmap_filte
     fig.update_xaxes(type='category', categoryorder='array', categoryarray = category_order)
     return fig
 
-def select_experiment(df: pd.DataFrame, exp_number: str) -> pd.DataFrame:
+def select_experiment(df: pd.DataFrame, exp_number: str, only_size: bool = False) -> pd.DataFrame:
     """
     Create selection options for the experiment and return selected experiment
     """
     st.subheader(f"Experiment {exp_number}")
     training_sample_size = st.selectbox(f"Select the training sample size for Experiment {exp_number}", sorted(df["Training Sample Size"].unique()), index=3, key=f"training_sample_size{exp_number}")
+    if only_size:
+        return df[(df["Training Sample Size"] == training_sample_size)]
     # Convert the selected string "True"/"False" to boolean True/False
     use_gradient_scaling = st.selectbox(f"Select whether gradient scaling was used for Experiment {exp_number}", ["True", "False"], index=0, key=f"use_gradient_scaling{exp_number}")
     use_gradient_scaling = True if use_gradient_scaling == "True" else False
@@ -127,17 +148,17 @@ def select_experiment(df: pd.DataFrame, exp_number: str) -> pd.DataFrame:
 
     return df_exp
 
-def select_experiment_name(df: pd.DataFrame, exp_number: str) -> pd.DataFrame:
+def select_experiment_name(df: pd.DataFrame, exp_number: str, only_size: bool = False) -> pd.DataFrame:
     """
     Create selection options for the experiment and return selected experiment
     """
     st.subheader(f"Experiment {exp_number}")
     experimenty_name = st.selectbox(f"Select the name of the Experiment {exp_number}", sorted(df["name"].unique()), index=0, key=f"experimenty_name{exp_number}")
-    colmap = st.selectbox("Select the colmap model", ["estimated"], index=0,key=f"colmap_filter{exp_number}")
-
     df_exp = df[(df["name"] == experimenty_name)]
+    if only_size:
+        return df_exp
+    colmap = st.selectbox("Select the colmap model", ["estimated"], index=0,key=f"colmap_filter{exp_number}")
     df_exp = filter_dataset_colmap(df_exp, colmap)
-
     return df_exp
 
 def select_stats_alignment_images(experiment_path: str, alignment_measure:str = 'normalized_overlap'):
@@ -199,4 +220,13 @@ def read_alignemnt_metrics_file(df: pd.DataFrame, metric: str="normalized_overla
     # experiments_df.set_index('Index', inplace=True)
     return experiments_df
     
-
+def kill_ns_viewer():
+    """
+    Function to kill the ns-viewer process and any related child processes.
+    """
+    try:
+        subprocess.check_call(["pkill", "-f", "ns-viewer"])
+        return True
+    except subprocess.CalledProcessError:
+        # This means 'pkill' didn't find a process to terminate
+        return False
