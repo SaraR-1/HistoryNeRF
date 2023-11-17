@@ -1,0 +1,8 @@
+defaults:
+   - base_sampling
+
+rnd_seed: 
+sample_size:
+image_list: 
+sequential_sample_step: 
+sequential_sample_start: 0

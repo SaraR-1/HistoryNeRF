@@ -1,0 +1,6 @@
+defaults:
+  - base_goldstandard
+  - pose_estimation: pose_estimation
+
+input_dir: ""
+output_dir: ""

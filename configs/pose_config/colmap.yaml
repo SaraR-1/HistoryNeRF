@@ -1,6 +1,0 @@
-defaults:
-  - base_colmap
-camera_model: SIMPLE_RADIAL
-use_gpu: 1
-matching_method: exhaustive
-# output_dir: "testdir" <- override parent class defaults

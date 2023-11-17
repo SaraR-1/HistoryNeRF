@@ -8,9 +8,10 @@ class PoseEstimator(ABC):
         config: PoseEstimationConfig
     ):
         self.config = config
-        # self.initalize()
+        self.initialize()
 
-    def initalize(self):
+    def initialize(self):
+        #  Creates output directories (required by COLMAP) within the specified output directory
         self.output = Path(self.config.output_dir)
         self.output.mkdir(parents=True, exist_ok=True)
         (self.output / "mvs").mkdir(parents=True, exist_ok=True)
@@ -20,6 +21,10 @@ class PoseEstimator(ABC):
 
     @abstractmethod
     def estimate_poses(self):
+        pass
+
+    @abstractmethod
+    def evaluate_poses(self):
         pass
     
 

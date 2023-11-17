@@ -1,0 +1,15 @@
+defaults:
+  - base_evaluation
+
+camera_pose_path_train: "/workspace/data/old_petrol_pumps/data/train/transforms.json"
+camera_pose_path_test: "/workspace/data/old_petrol_pumps/data/test/transforms.json"
+gt_images_dir: "/workspace/data/old_petrol_pumps/data/test"
+
+config_path: 
+output_dir: 
+alignment:
+  flag: False
+  keypoint_detector: orb
+  matcher_distance: NORM_HAMMING
+  match_filter: 0.7
+  matched_keypoints_threshold: 30
